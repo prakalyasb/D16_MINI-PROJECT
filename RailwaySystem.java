@@ -83,7 +83,7 @@ public class RailwaySystem {
         if (p == null) {
             throw new IllegalArgumentException("Passenger cannot be null");
         }
-        passengers.put(p.getId(), p);
+        passengers.put(p.getPassengerId(), p);
     }
 
     /**
