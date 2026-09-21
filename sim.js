@@ -263,9 +263,10 @@ class TrainService {
         this.lastCancelResult = null;
 
         // 1. Scan this.seats for the matching reservation ID
-        const foundIndex = this.seats.findIndex(r => r !== null && r.id === reservationId);
+        let seatIndex = this.seats.findIndex(r => r && r.id === reservationId);
 
-        if (foundIndex === -1) {
+        if (seatIndex === -1) {
+            console.error(`Reservation ${reservationId} not found on Train ${this.id}`);
             const err = `Reservation ${reservationId} not found on Train ${this.id}`;
             window.eventLog.push(`CANCEL ERROR: ${err}`);
             this.lastCancelResult = { success: false, error: err, freedSeatNumber: null, promotedReservation: null };
@@ -273,11 +274,12 @@ class TrainService {
                 systemRef.lastCancelResult = this.lastCancelResult;
                 systemRef.saveToStorage();
             }
-            return null;
+            return { ok: false, reason: "Reservation not found" };
         }
 
-        const cancelledRes = this.seats[foundIndex];
+        const cancelledRes = this.seats[seatIndex];
         if (cancelledRes.status === "CANCELLED") {
+            console.error(`Reservation ${reservationId} is already cancelled`);
             const err = `Reservation ${reservationId} is already cancelled`;
             window.eventLog.push(`CANCEL ERROR: ${err}`);
             this.lastCancelResult = { success: false, error: err, freedSeatNumber: null, promotedReservation: null };
@@ -285,13 +287,13 @@ class TrainService {
                 systemRef.lastCancelResult = this.lastCancelResult;
                 systemRef.saveToStorage();
             }
-            return null;
+            return { ok: false, reason: "Reservation is already cancelled" };
         }
 
         // 2. Mark it CANCELLED and clear this seat slot
         cancelledRes.markCancelled();
-        const freedSeat = foundIndex + 1;
-        this.seats[foundIndex] = null;
+        const freedSeat = seatIndex + 1;
+        this.seats[seatIndex] = null;
 
         const cancelLog = `CANCEL: Reservation ${reservationId} on Train ${this.id} cancelled (Seat ${freedSeat} freed)`;
         window.eventLog.push(cancelLog);
@@ -302,7 +304,7 @@ class TrainService {
             const newResId = systemRef ? systemRef.generateReservationId() : `R${String(Date.now()).slice(-3)}`;
             const promotedRes = new Reservation(newResId, promotedPassenger, this.id, freedSeat);
 
-            this.seats[foundIndex] = promotedRes;
+            this.seats[seatIndex] = promotedRes;
 
             const promoteLog = `PROMOTE: Passenger ${promotedPassenger.id} (${promotedPassenger.name}) promoted from waiting list -> seat ${freedSeat} CONFIRMED as ${newResId}`;
             window.eventLog.push(promoteLog);
@@ -465,13 +467,14 @@ class RailwaySystem {
     cancelBooking(trainId, reservationId) {
         const train = this.trains.get(trainId);
         if (!train) {
+            console.error(`Train ${trainId} not found`);
             this.lastCancelResult = {
                 success: false,
                 error: `Train ${trainId} not found`,
                 freedSeatNumber: null,
                 promotedReservation: null
             };
-            return null;
+            return { ok: false, reason: `Train ${trainId} not found` };
         }
 
         const res = train.cancelBooking(reservationId, this);
