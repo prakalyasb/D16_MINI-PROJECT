@@ -131,8 +131,8 @@ class TrainService {
         this.length = length;
         this.priority = priority; // "EMERGENCY", "CONNECTING", "SCHEDULED"
 
-        // Confirmed reservations kept strictly sorted by bookingTime
-        this.confirmedReservations = [];
+        // Fixed-size array where index 0 = seat 1, index 1 = seat 2, etc. Source of truth.
+        this.seats = new Array(this.capacity).fill(null);
 
         // Waiting list queue strictly used as FIFO (push to add, shift to remove)
         this.waitingQueue = [];
@@ -142,17 +142,40 @@ class TrainService {
     }
 
     /**
+     * Derived getter returning non-null reservations, sorted by bookingTime
+     */
+    get confirmedReservations() {
+        return this.seats
+            .filter(r => r !== null)
+            .sort((a, b) => a.bookingTime - b.bookingTime);
+    }
+
+    /**
+     * Setter for compatibility with legacy state restoration
+     */
+    set confirmedReservations(resList) {
+        this.seats = new Array(this.capacity).fill(null);
+        if (Array.isArray(resList)) {
+            resList.forEach(r => {
+                if (r && r.seatNumber >= 1 && r.seatNumber <= this.capacity) {
+                    this.seats[r.seatNumber - 1] = r;
+                }
+            });
+        }
+    }
+
+    /**
      * Checks if all seats are booked
      */
     isFull() {
-        return this.confirmedReservations.length >= this.capacity;
+        return this.seats.every(s => s !== null);
     }
 
     /**
      * Returns count of remaining free seats
      */
     getAvailableSeats() {
-        return Math.max(0, this.capacity - this.confirmedReservations.length);
+        return this.seats.filter(s => s === null).length;
     }
 
     /**
@@ -163,53 +186,69 @@ class TrainService {
     }
 
     /**
-     * Finds the lowest available seat number (1 to capacity)
+     * Finds lowest available seat number (1 to capacity) or -1 if full
      */
     findNextAvailableSeatNumber() {
-        const takenSeats = new Set(this.confirmedReservations.map(r => r.seatNumber));
-        for (let s = 1; s <= this.capacity; s++) {
-            if (!takenSeats.has(s)) {
-                return s;
+        for (let i = 0; i < this.capacity; i++) {
+            if (this.seats[i] === null) {
+                return i + 1;
             }
         }
-        return this.confirmedReservations.length + 1;
+        return -1;
     }
 
     /**
-     * Attempts to book a seat for the passenger.
-     * Returns the Reservation if confirmed, or null if added to waitingQueue.
+     * Attempts to book a specific seat for the passenger.
+     * seatNumber is 1-indexed (1 to capacity) as chosen by the user.
+     *
+     * @param {Passenger} passenger
+     * @param {number} seatNumber - 1-indexed seat number
+     * @param {RailwaySystem} systemRef
+     * @returns {{ ok: boolean, reason?: string, reservation?: Reservation }}
+     */
+    bookSeat(passenger, seatNumber, systemRef) {
+        const sNum = parseInt(seatNumber, 10);
+        if (isNaN(sNum) || sNum < 1 || sNum > this.capacity) {
+            return { ok: false, reason: "Invalid seat number" };
+        }
+
+        // If seat is already occupied, return clear error without overwriting
+        if (this.seats[sNum - 1] !== null) {
+            return { ok: false, reason: "Seat already booked" };
+        }
+
+        // Allocate the requested seat
+        const reservationId = systemRef ? systemRef.generateReservationId() : `R${String(Date.now()).slice(-3)}`;
+        const reservation = new Reservation(reservationId, passenger, this.id, sNum);
+        this.seats[sNum - 1] = reservation;
+
+        const logLine = `BOOK: Passenger ${passenger.id} (${passenger.name}) -> Train ${this.id}, seat ${sNum}/${this.capacity} CONFIRMED (${reservationId})`;
+        window.eventLog.push(logLine);
+        if (systemRef) systemRef.saveToStorage();
+
+        return { ok: true, reservation };
+    }
+
+    /**
+     * Explicitly joins the FIFO waiting list when the train is full
      *
      * @param {Passenger} passenger
      * @param {RailwaySystem} systemRef
-     * @returns {Reservation|null}
+     * @returns {{ ok: boolean, reason?: string, position?: number }}
      */
-    bookSeat(passenger, systemRef) {
+    joinWaitingList(passenger, systemRef) {
         if (!this.isFull()) {
-            const reservationId = systemRef ? systemRef.generateReservationId() : `R${String(Date.now()).slice(-3)}`;
-            const seatNumber = this.findNextAvailableSeatNumber();
-            const reservation = new Reservation(reservationId, passenger, this.id, seatNumber);
-
-            // Maintain sorted order by bookingTime
-            this.confirmedReservations.push(reservation);
-            this.confirmedReservations.sort((a, b) => a.bookingTime - b.bookingTime);
-
-            // Log event in exact Java console style
-            const logLine = `BOOK: Passenger ${passenger.id} (${passenger.name}) -> Train ${this.id}, seat ${seatNumber}/${this.capacity} CONFIRMED`;
-            window.eventLog.push(logLine);
-            if (systemRef) systemRef.saveToStorage();
-
-            return reservation;
-        } else {
-            // Train full -> strictly FIFO enqueue
-            this.waitingQueue.push(passenger);
-            const position = this.waitingQueue.length;
-
-            const logLine = `BOOK: Train ${this.id} full (${this.capacity}/${this.capacity}) -> Passenger ${passenger.id} (${passenger.name}) added to waiting list, position ${position}`;
-            window.eventLog.push(logLine);
-            if (systemRef) systemRef.saveToStorage();
-
-            return null;
+            return { ok: false, reason: "Seats are still available for booking" };
         }
+
+        this.waitingQueue.push(passenger);
+        const position = this.waitingQueue.length;
+
+        const logLine = `WAITLIST: Train ${this.id} full (${this.capacity}/${this.capacity}) -> Passenger ${passenger.id} (${passenger.name}) added to waiting list, position ${position}`;
+        window.eventLog.push(logLine);
+        if (systemRef) systemRef.saveToStorage();
+
+        return { ok: true, position };
     }
 
     /**
@@ -223,8 +262,8 @@ class TrainService {
     cancelBooking(reservationId, systemRef) {
         this.lastCancelResult = null;
 
-        // 1. Find the confirmed reservation by ID; if not found or already cancelled, return null
-        const foundIndex = this.confirmedReservations.findIndex(r => r.id === reservationId);
+        // 1. Scan this.seats for the matching reservation ID
+        const foundIndex = this.seats.findIndex(r => r !== null && r.id === reservationId);
 
         if (foundIndex === -1) {
             const err = `Reservation ${reservationId} not found on Train ${this.id}`;
@@ -237,7 +276,7 @@ class TrainService {
             return null;
         }
 
-        const cancelledRes = this.confirmedReservations[foundIndex];
+        const cancelledRes = this.seats[foundIndex];
         if (cancelledRes.status === "CANCELLED") {
             const err = `Reservation ${reservationId} is already cancelled`;
             window.eventLog.push(`CANCEL ERROR: ${err}`);
@@ -249,22 +288,21 @@ class TrainService {
             return null;
         }
 
-        // 2. Mark it CANCELLED and remove it from confirmedReservations
+        // 2. Mark it CANCELLED and clear this seat slot
         cancelledRes.markCancelled();
-        const freedSeat = cancelledRes.seatNumber;
-        this.confirmedReservations.splice(foundIndex, 1);
+        const freedSeat = foundIndex + 1;
+        this.seats[foundIndex] = null;
 
-        const cancelLog = `CANCEL: Reservation ${reservationId} on Train ${this.id} cancelled`;
+        const cancelLog = `CANCEL: Reservation ${reservationId} on Train ${this.id} cancelled (Seat ${freedSeat} freed)`;
         window.eventLog.push(cancelLog);
 
-        // 3. If waitingQueue.length > 0, shift() front passenger and assign SAME seat number
+        // 3. If waitingQueue.length > 0, shift() front passenger and assign SAME seat slot
         if (this.waitingQueue.length > 0) {
             const promotedPassenger = this.waitingQueue.shift(); // strictly FIFO shift()
             const newResId = systemRef ? systemRef.generateReservationId() : `R${String(Date.now()).slice(-3)}`;
             const promotedRes = new Reservation(newResId, promotedPassenger, this.id, freedSeat);
 
-            this.confirmedReservations.push(promotedRes);
-            this.confirmedReservations.sort((a, b) => a.bookingTime - b.bookingTime);
+            this.seats[foundIndex] = promotedRes;
 
             const promoteLog = `PROMOTE: Passenger ${promotedPassenger.id} (${promotedPassenger.name}) promoted from waiting list -> seat ${freedSeat} CONFIRMED as ${newResId}`;
             window.eventLog.push(promoteLog);
@@ -382,14 +420,14 @@ class RailwaySystem {
     }
 
     /**
-     * Looks up or registers a passenger, then delegates booking to TrainService
+     * Looks up or registers a passenger, then delegates seat booking to TrainService
      */
-    bookSeat(trainId, passengerId, passengerName) {
+    bookSeat(trainId, passengerId, passengerName, seatNumber) {
         const train = this.trains.get(trainId);
         if (!train) {
             window.eventLog.push(`ERROR: Train ${trainId} not found`);
             this.saveToStorage();
-            return null;
+            return { ok: false, reason: `Train ${trainId} not found` };
         }
 
         let passenger = this.passengers.get(passengerId);
@@ -398,7 +436,27 @@ class RailwaySystem {
             this.registerPassenger(passenger);
         }
 
-        return train.bookSeat(passenger, this);
+        return train.bookSeat(passenger, seatNumber, this);
+    }
+
+    /**
+     * Explicitly registers a passenger on a full train's FIFO waiting list
+     */
+    joinWaitingList(trainId, passengerId, passengerName) {
+        const train = this.trains.get(trainId);
+        if (!train) {
+            window.eventLog.push(`ERROR: Train ${trainId} not found`);
+            this.saveToStorage();
+            return { ok: false, reason: `Train ${trainId} not found` };
+        }
+
+        let passenger = this.passengers.get(passengerId);
+        if (!passenger) {
+            passenger = new Passenger(passengerId || this.generatePassengerId(), passengerName || "Passenger");
+            this.registerPassenger(passenger);
+        }
+
+        return train.joinWaitingList(passenger, this);
     }
 
     /**
@@ -452,6 +510,14 @@ class RailwaySystem {
                     departure: t.departure,
                     length: t.length,
                     priority: t.priority,
+                    seats: t.seats.map(r => r ? {
+                        id: r.id,
+                        passenger: r.passenger,
+                        trainId: r.trainId,
+                        seatNumber: r.seatNumber,
+                        status: r.status,
+                        bookingTime: r.bookingTime
+                    } : null),
                     confirmedReservations: t.confirmedReservations,
                     waitingQueue: t.waitingQueue
                 })),
@@ -493,13 +559,26 @@ class RailwaySystem {
                 data.trains.forEach(tData => {
                     const train = this.trains.get(tData.id);
                     if (train) {
-                        train.confirmedReservations = tData.confirmedReservations.map(r => {
-                            const res = new Reservation(r.id, r.passenger, r.trainId, r.seatNumber);
-                            res.status = r.status;
-                            res.bookingTime = r.bookingTime;
-                            return res;
-                        });
-                        train.waitingQueue = tData.waitingQueue.map(p => new Passenger(p.id, p.name));
+                        if (Array.isArray(tData.seats)) {
+                            train.seats = tData.seats.map(r => {
+                                if (!r) return null;
+                                const res = new Reservation(r.id, r.passenger, r.trainId, r.seatNumber);
+                                res.status = r.status;
+                                res.bookingTime = r.bookingTime;
+                                return res;
+                            });
+                        } else if (Array.isArray(tData.confirmedReservations)) {
+                            train.confirmedReservations = tData.confirmedReservations.map(r => {
+                                const res = new Reservation(r.id, r.passenger, r.trainId, r.seatNumber);
+                                res.status = r.status;
+                                res.bookingTime = r.bookingTime;
+                                return res;
+                            });
+                        }
+
+                        if (Array.isArray(tData.waitingQueue)) {
+                            train.waitingQueue = tData.waitingQueue.map(p => new Passenger(p.id, p.name));
+                        }
                     }
                 });
             }

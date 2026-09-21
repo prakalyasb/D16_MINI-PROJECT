@@ -185,9 +185,9 @@
             for (let i = 0; i < 10; i++) {
                 const pId = window.railwaySystem.generatePassengerId();
                 const pName = names[i];
-                const res = window.railwaySystem.bookSeat(trainId, pId, pName);
-                if (res && res.seatNumber === 4) {
-                    targetReservationToCancel = res.id;
+                const resResult = window.railwaySystem.bookSeat(trainId, pId, pName, i + 1);
+                if (resResult && resResult.ok && resResult.reservation && resResult.reservation.seatNumber === 4) {
+                    targetReservationToCancel = resResult.reservation.id;
                     cancelledPassengerName = pName;
                 }
             }
@@ -197,7 +197,7 @@
             for (let i = 10; i < 12; i++) {
                 const pId = window.railwaySystem.generatePassengerId();
                 const pName = names[i];
-                window.railwaySystem.bookSeat(trainId, pId, pName);
+                window.railwaySystem.joinWaitingList(trainId, pId, pName);
             }
             steps.push(`<strong>Phase 2:</strong> Added 2 passengers to FIFO Waiting List: 1. Karthik, 2. Lakshmi.`);
 

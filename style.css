@@ -569,29 +569,54 @@ body {
     cursor: default;
 }
 
-/* Free seat = sleek gray */
+/* Free seat = sleek gray, clickable for booking */
 .seat-box.empty {
     background-color: rgba(255, 255, 255, 0.05);
     border-color: #334155;
-    color: #64748b;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.seat-box.empty .seat-num {
-    font-size: 0.95rem;
-    font-weight: 600;
+.seat-box.empty:hover {
+    background-color: rgba(56, 189, 248, 0.12);
+    border-color: #38bdf8;
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(56, 189, 248, 0.25);
 }
 
-.seat-box.empty .seat-status-tag {
-    font-size: 0.65rem;
-    color: #64748b;
+/* Selected empty seat for booking (blue highlight) */
+.seat-box.empty.selected, .seat-box.selected {
+    background-color: rgba(59, 130, 246, 0.25) !important;
+    border: 2px solid #38bdf8 !important;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.7) !important;
+    color: #ffffff !important;
+    transform: scale(1.06) translateY(-2px);
 }
 
-/* Booked seat = green */
+/* Booked seat = green, clickable to cancel */
 .seat-box.filled {
     background-color: rgba(16, 185, 129, 0.18);
     border-color: #10b981;
     color: #34d399;
     box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.seat-box.filled:hover {
+    border-color: #f87171;
+    box-shadow: 0 0 12px rgba(248, 113, 113, 0.4);
+    transform: translateY(-2px);
+}
+
+/* Selected occupied seat for cancellation (red/amber highlight) */
+.seat-box.filled.selected-occupied {
+    background-color: rgba(239, 68, 68, 0.22) !important;
+    border: 2px solid #f87171 !important;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.6) !important;
+    transform: scale(1.06) translateY(-2px);
 }
 
 .seat-box.filled .seat-num {
@@ -614,6 +639,95 @@ body {
     font-size: 0.62rem;
     color: #6ee7b7;
     font-weight: 600;
+}
+
+/* Contextual seat action box & hints */
+.seat-action-box {
+    background-color: rgba(11, 15, 25, 0.75);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.seat-action-box.booking-box {
+    border-left: 3px solid #38bdf8;
+}
+
+.seat-action-box.cancellation-box {
+    border-left: 3px solid #f87171;
+}
+
+.seat-action-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #f8fafc;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.status-tag-booked {
+    color: #f87171;
+    font-weight: 700;
+    font-size: 0.8rem;
+    background: rgba(239, 68, 68, 0.15);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.seat-selection-hint {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 0.4rem 0.2rem;
+    font-style: italic;
+}
+
+.btn-action.secondary {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-action.secondary:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+}
+
+.btn-action.waitlist {
+    background: linear-gradient(135deg, #d97706, #b45309);
+}
+
+.btn-action.waitlist:hover {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.btn-waitlist-full {
+    width: 100%;
+    background: linear-gradient(135deg, #d97706, #b45309);
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.85rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+    transition: all 0.2s ease;
+}
+
+.btn-waitlist-full:hover {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    transform: translateY(-1px);
 }
 
 /* Waiting List Banner in card */
