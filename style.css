@@ -1,0 +1,918 @@
+/*
+ * Payanam Junction - Railway Reservation System
+ * style.css: Modern dark terminal & dashboard styling
+ */
+
+:root {
+    --bg-primary: #0a0e17;
+    --bg-secondary: #121826;
+    --bg-card: #182234;
+    --bg-card-hover: #1f2b42;
+    --border-color: #26354f;
+    --border-subtle: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --terminal-bg: #07090e;
+    --terminal-green: #00ff66;
+    --terminal-cyan: #00e5ff;
+    --terminal-amber: #ffb703;
+    --terminal-red: #ff4757;
+    --terminal-purple: #c084fc;
+    --accent-blue: #3b82f6;
+    --accent-emerald: #10b981;
+    --accent-rose: #f43f5e;
+    --accent-amber: #f59e0b;
+    --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* =========================================================================
+   Navigation Bar
+   ========================================================================= */
+.navbar {
+    background-color: rgba(18, 24, 38, 0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.nav-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0.85rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+}
+
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: var(--text-primary);
+}
+
+.nav-logo-icon {
+    font-size: 1.6rem;
+    background: linear-gradient(135deg, #38bdf8, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.nav-brand-text {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    display: flex;
+    flex-direction: column;
+}
+
+.nav-brand-title {
+    color: #f8fafc;
+    line-height: 1.1;
+}
+
+.nav-brand-sub {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--terminal-cyan);
+}
+
+.nav-links {
+    display: flex;
+    list-style: none;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.nav-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.5rem 0.85rem;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.nav-link:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.nav-link.active {
+    color: var(--terminal-cyan);
+    background-color: rgba(0, 229, 255, 0.1);
+    border: 1px solid rgba(0, 229, 255, 0.25);
+    font-weight: 600;
+}
+
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.btn-reset {
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 0.45rem 0.8rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-reset:hover {
+    color: var(--terminal-red);
+    border-color: var(--terminal-red);
+    background-color: rgba(255, 71, 87, 0.1);
+}
+
+/* =========================================================================
+   Layout & Container
+   ========================================================================= */
+.main-content {
+    flex: 1;
+    max-width: 1280px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 3rem;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-title {
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: #f8fafc;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.page-desc {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    max-width: 860px;
+}
+
+/* =========================================================================
+   Terminal Shell & Styling
+   ========================================================================= */
+.terminal-shell {
+    background-color: var(--terminal-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.terminal-header {
+    background-color: #0f141f;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+}
+
+.terminal-controls {
+    display: flex;
+    gap: 6px;
+}
+
+.terminal-controls .dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.terminal-controls .dot.red { background-color: #ff5f56; }
+.terminal-controls .dot.yellow { background-color: #ffbd2e; }
+.terminal-controls .dot.green { background-color: #27c93f; }
+
+.terminal-title {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: #94a3b8;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.terminal-icon {
+    color: var(--terminal-cyan);
+}
+
+.terminal-meta .live-indicator {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    background-color: rgba(39, 201, 63, 0.15);
+    color: #27c93f;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid rgba(39, 201, 63, 0.3);
+    letter-spacing: 0.05em;
+}
+
+.terminal-body {
+    padding: 1rem 1.25rem;
+    max-height: 380px;
+    min-height: 160px;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: var(--terminal-green);
+    background-color: var(--terminal-bg);
+}
+
+.terminal-body:focus {
+    outline: none;
+}
+
+.terminal-line {
+    margin-bottom: 0.25rem;
+    word-break: break-all;
+    white-space: pre-wrap;
+}
+
+.terminal-line.placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.prompt-sym {
+    color: #475569;
+    user-select: none;
+    margin-right: 0.5rem;
+}
+
+.line-fade-in {
+    animation: terminalFade 0.2s ease-out forwards;
+}
+
+@keyframes terminalFade {
+    from {
+        opacity: 0;
+        transform: translateY(3px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Terminal syntax tags */
+.tag-book { color: var(--terminal-cyan); font-weight: 700; }
+.tag-cancel { color: var(--terminal-amber); font-weight: 700; }
+.tag-promote { color: var(--terminal-green); font-weight: 700; text-shadow: 0 0 8px rgba(0, 255, 102, 0.4); }
+.tag-error { color: var(--terminal-red); font-weight: 700; }
+.tag-system { color: var(--terminal-purple); font-weight: 600; }
+
+/* Custom Terminal Scrollbar */
+.terminal-body::-webkit-scrollbar {
+    width: 7px;
+}
+.terminal-body::-webkit-scrollbar-track {
+    background: #090c12;
+}
+.terminal-body::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 4px;
+}
+.terminal-body::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+}
+
+/* =========================================================================
+   Dashboard Grid (Home Page)
+   ========================================================================= */
+.stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.15rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-card-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.35rem;
+}
+
+.stat-card-value {
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: #f8fafc;
+    line-height: 1;
+}
+
+.stat-card-value.cyan { color: var(--terminal-cyan); }
+.stat-card-value.green { color: var(--accent-emerald); }
+.stat-card-value.amber { color: var(--accent-amber); }
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.train-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.train-card:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+}
+
+.train-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.85rem;
+}
+
+.train-id-badge {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.train-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-top: 0.35rem;
+}
+
+.priority-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 9999px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.priority-badge.scheduled {
+    background-color: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.priority-badge.emergency {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.priority-badge.connecting {
+    background-color: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.train-details-list {
+    list-style: none;
+    font-size: 0.86rem;
+    color: var(--text-secondary);
+    margin: 0.85rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.train-detail-row {
+    display: flex;
+    justify-content: space-between;
+}
+
+.train-detail-label {
+    color: var(--text-muted);
+}
+
+.train-detail-val {
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* Progress bar for capacity */
+.seat-progress-container {
+    margin: 0.85rem 0 0.5rem;
+}
+
+.seat-progress-bar-bg {
+    background-color: rgba(255, 255, 255, 0.08);
+    height: 8px;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.seat-progress-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #10b981, #34d399);
+    transition: width 0.3s ease;
+}
+
+.seat-progress-fill.full {
+    background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+/* =========================================================================
+   Reservations Page & 10-Box Seat Grid
+   ========================================================================= */
+.reservation-trains-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 1.75rem;
+}
+
+.res-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+}
+
+.res-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 0.85rem;
+}
+
+.res-train-meta {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+
+/* 10-Box Seat Grid */
+.seat-grid-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.seat-grid-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    justify-content: space-between;
+}
+
+.seat-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+}
+
+.seat-box {
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    padding: 4px;
+    position: relative;
+    cursor: default;
+}
+
+/* Free seat = sleek gray */
+.seat-box.empty {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: #334155;
+    color: #64748b;
+}
+
+.seat-box.empty .seat-num {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.seat-box.empty .seat-status-tag {
+    font-size: 0.65rem;
+    color: #64748b;
+}
+
+/* Booked seat = green */
+.seat-box.filled {
+    background-color: rgba(16, 185, 129, 0.18);
+    border-color: #10b981;
+    color: #34d399;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.seat-box.filled .seat-num {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.seat-box.filled .seat-passenger-tag {
+    font-size: 0.68rem;
+    color: #a7f3d0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.seat-box.filled .seat-res-id {
+    font-size: 0.62rem;
+    color: #6ee7b7;
+    font-weight: 600;
+}
+
+/* Waiting List Banner in card */
+.waiting-badge-container {
+    background-color: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.8rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+}
+
+.waiting-badge-container .wait-label {
+    color: #fbbf24;
+    font-weight: 600;
+}
+
+.waiting-badge-container .wait-names {
+    color: #fde68a;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+}
+
+/* Reservation Action Controls */
+.res-actions-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem;
+}
+
+.action-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.input-control {
+    background-color: #0b0f19;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: var(--radius-sm);
+    flex: 1;
+    transition: border-color 0.2s ease;
+}
+
+.input-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.btn-action {
+    background-color: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-action:hover {
+    background-color: #1d4ed8;
+}
+
+.btn-action.cancel {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.btn-action.cancel:hover {
+    background-color: #ef4444;
+    color: #ffffff;
+}
+
+/* Mini Terminal under card */
+.mini-terminal-container .terminal-body {
+    max-height: 140px;
+    min-height: 90px;
+    font-size: 0.78rem;
+    padding: 0.6rem 0.85rem;
+}
+
+.mini-terminal-container .terminal-header {
+    padding: 0.4rem 0.85rem;
+}
+
+/* =========================================================================
+   Platform Allocation Page
+   ========================================================================= */
+.phase2-banner {
+    background-color: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.phase2-icon {
+    font-size: 2rem;
+    color: #60a5fa;
+}
+
+.phase2-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 0.25rem;
+}
+
+.phase2-text {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.data-table-container {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 2rem;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+.data-table th {
+    background-color: var(--bg-secondary);
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table td {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+}
+
+.data-table tr:last-child td {
+    border-bottom: none;
+}
+
+.data-table tr:hover td {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* =========================================================================
+   Test Scenarios Page
+   ========================================================================= */
+.scenarios-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.scenario-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1.25rem;
+    transition: all 0.2s ease;
+}
+
+.scenario-card:hover {
+    border-color: #3b82f6;
+    box-shadow: var(--shadow-md);
+}
+
+.scenario-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.scenario-badge {
+    background-color: rgba(99, 102, 241, 0.15);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+}
+
+.scenario-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.scenario-desc {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.btn-scenario {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+
+.btn-scenario:hover {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.btn-scenario.secondary {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    box-shadow: none;
+}
+
+.btn-scenario.secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border-color: #64748b;
+}
+
+/* =========================================================================
+   Footer
+   ========================================================================= */
+.footer {
+    background-color: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    padding: 1.5rem 0;
+    margin-top: auto;
+}
+
+.footer-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.footer-tech {
+    font-family: var(--font-mono);
+    color: var(--terminal-cyan);
+    font-size: 0.78rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .nav-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .nav-links {
+        flex-wrap: wrap;
+    }
+    .dashboard-grid, .reservation-trains-grid {
+        grid-template-columns: 1fr;
+    }
+}
