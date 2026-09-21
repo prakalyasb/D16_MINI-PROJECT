@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Station Animation - Payanam Junction</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Animation & Dispatcher Board Styles */
+        .anim-controls-bar {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .controls-left, .controls-right {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-anim-play {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #ffffff;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 0.55rem 1.25rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            min-width: 105px;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-anim-play:hover {
+            background: linear-gradient(135deg, #34d399, #10b981);
+            transform: translateY(-1px);
+        }
+
+        .btn-anim-play.paused {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-anim-reset {
+            background-color: rgba(255, 255, 255, 0.06);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 0.55rem 1rem;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .btn-anim-reset:hover {
+            background-color: rgba(255, 255, 255, 0.12);
+            border-color: #64748b;
+        }
+
+        .speed-group {
+            display: flex;
+            background-color: #0b0f19;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+        }
+
+        .btn-speed {
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            padding: 0.45rem 0.75rem;
+            font-size: 0.82rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-speed:not(:last-child) {
+            border-right: 1px solid var(--border-color);
+        }
+
+        .btn-speed:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .btn-speed.active {
+            background-color: var(--terminal-cyan);
+            color: #070a12;
+        }
+
+        /* Clock Readout Display */
+        .sim-clock-card {
+            background-color: #060910;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 0.4rem 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-family: var(--font-mono);
+        }
+
+        .sim-clock-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .sim-clock-time {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--terminal-cyan);
+            letter-spacing: 0.08em;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+        }
+
+        .sim-status-pill {
+            font-size: 0.78rem;
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-subtle);
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+        }
+
+        /* SVG Map Container */
+        .track-map-wrapper {
+            background-color: #07090e;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .track-svg-element {
+            width: 100%;
+            height: auto;
+            display: block;
+            user-select: none;
+        }
+
+        /* Priority Colors for Train Nodes */
+        .train-node {
+            cursor: pointer;
+        }
+
+        .train-node rect {
+            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.6));
+        }
+
+        .train-node.emergency rect {
+            fill: #dc2626;
+            stroke: #f87171;
+            stroke-width: 1.5;
+        }
+
+        .train-node.connecting rect {
+            fill: #d97706;
+            stroke: #fbbf24;
+            stroke-width: 1.5;
+        }
+
+        .train-node.scheduled rect {
+            fill: #2563eb;
+            stroke: #60a5fa;
+            stroke-width: 1.5;
+        }
+
+        /* Waitlist visual state: dashed amber outline & pulse */
+        .train-node.waitlisted rect {
+            stroke: #f59e0b !important;
+            stroke-width: 2.5 !important;
+            stroke-dasharray: 6 3 !important;
+            animation: waitlistPulse 1.6s ease-in-out infinite alternate;
+        }
+
+        @keyframes waitlistPulse {
+            from { opacity: 0.75; }
+            to { opacity: 1; }
+        }
+
+        /* Map Legend */
+        .map-legend {
+            position: absolute;
+            bottom: 12px;
+            left: 16px;
+            background: rgba(10, 14, 23, 0.88);
+            backdrop-filter: blur(6px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 0.4rem 0.8rem;
+            display: flex;
+            gap: 1rem;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            display: inline-block;
+        }
+        .legend-color.emergency { background-color: #dc2626; }
+        .legend-color.connecting { background-color: #d97706; }
+        .legend-color.scheduled { background-color: #2563eb; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">
+                <span class="nav-logo-icon">🚄</span>
+                <div class="nav-brand-text">
+                    <span class="nav-brand-title">PAYANAM JUNCTION</span>
+                    <span class="nav-brand-sub">Railway Reservation Prototype</span>
+                </div>
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html" class="nav-link">Home</a></li>
+                <li><a href="reservations.html" class="nav-link">Reservations</a></li>
+                <li><a href="platform-allocation.html" class="nav-link">Platform Allocation</a></li>
+                <li><a href="test-scenarios.html" class="nav-link">Test Scenarios</a></li>
+                <li><a href="animation.html" class="nav-link active">Animation</a></li>
+            </ul>
+            <div class="nav-actions">
+                <button id="btnResetState" class="btn-reset" title="Reset all trains to empty state">
+                    <span>↺</span> Reset System
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="page-header">
+            <h1 class="page-title">Real-Time Station Dispatcher &amp; Platform Animation</h1>
+            <p class="page-desc">
+                Interactive 2D animated track visualizer for Payanam Junction. Demonstrates incoming train arrival into the staging yard, smooth transition berthing into assigned platforms (PF-1 300m, PF-2 400m, PF-3 500m), waitlist holding with dashed amber warning styling, and departures off the mainline.
+            </p>
+        </header>
+
+        <!-- Animation Controls Bar -->
+        <section class="anim-controls-bar">
+            <div class="controls-left">
+                <!-- Play / Pause Button -->
+                <button id="btnPlayPause" class="btn-anim-play" onclick="togglePlayPause()">
+                    <span id="playIcon">▶</span> <span id="playText">Play</span>
+                </button>
+
+                <!-- Speed Control Buttons -->
+                <div class="speed-group" title="Playback Speed">
+                    <button class="btn-speed active" data-speed="1" onclick="setSpeed(1)">1x</button>
+                    <button class="btn-speed" data-speed="5" onclick="setSpeed(5)">5x</button>
+                    <button class="btn-speed" data-speed="20" onclick="setSpeed(20)">20x</button>
+                </div>
+
+                <!-- Reset Animation Button -->
+                <button class="btn-anim-reset" onclick="resetAnimation()">
+                    <span>↺</span> Reset
+                </button>
+            </div>
+
+            <div class="controls-right">
+                <!-- Simulated Time Readout -->
+                <div class="sim-clock-card">
+                    <span class="sim-clock-label">Sim Clock</span>
+                    <span class="sim-clock-time" id="clockReadout">06:00</span>
+                </div>
+
+                <!-- Step Counter Pill -->
+                <div class="sim-status-pill" id="stepCounterPill">
+                    Step: 0 / 17
+                </div>
+            </div>
+        </section>
+
+        <!-- SVG Track Map Display (1200x500 viewBox) -->
+        <section class="track-map-wrapper">
+            <svg id="stationSvg" class="track-svg-element" viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <!-- Background Grid Pattern -->
+                    <pattern id="gridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
+                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="1"/>
+                    </pattern>
+
+                    <!-- Platform Drop Shadow -->
+                    <filter id="platformShadow" x="-5%" y="-10%" width="110%" height="130%">
+                        <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.6"/>
+                    </filter>
+                </defs>
+
+                <!-- Subtle Background Grid -->
+                <rect width="1200" height="500" fill="#080b12" />
+                <rect width="1200" height="500" fill="url(#gridPattern)" />
+
+                <!-- Left Departure Throat Graphic (&larr; Westbound Mainline) -->
+                <g id="westboundThroat" opacity="0.7">
+                    <line x1="20" y1="110" x2="80" y2="110" stroke="#475569" stroke-width="3" stroke-dasharray="6 3" />
+                    <line x1="20" y1="230" x2="80" y2="230" stroke="#475569" stroke-width="3" stroke-dasharray="6 3" />
+                    <line x1="20" y1="350" x2="80" y2="350" stroke="#475569" stroke-width="3" stroke-dasharray="6 3" />
+                    <polygon points="15,110 28,104 28,116" fill="#38bdf8" />
+                    <polygon points="15,230 28,224 28,236" fill="#38bdf8" />
+                    <polygon points="15,350 28,344 28,356" fill="#38bdf8" />
+                    <text x="25" y="440" fill="#64748b" font-family="monospace" font-size="11" font-weight="bold">
+                        &larr; MAINLINE DEPARTURES (WEST)
+                    </text>
+                </g>
+
+                <!-- =========================================================================
+                     Platform Lanes (1, 2, 3)
+                     ========================================================================= -->
+
+                <!-- PLATFORM 1 LANE (300m) -->
+                <g id="lanePlatform1">
+                    <!-- Steel rails -->
+                    <line x1="80" y1="106" x2="940" y2="106" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="114" x2="940" y2="114" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="110" x2="940" y2="110" stroke="#1e293b" stroke-width="8" stroke-dasharray="2 6" />
+
+                    <!-- Concrete Platform Berth -->
+                    <rect x="220" y="65" width="560" height="32" rx="6" fill="#131c2e" stroke="#38bdf8" stroke-width="1.5" filter="url(#platformShadow)" />
+                    <!-- Platform Accent stripe -->
+                    <rect x="220" y="93" width="560" height="4" rx="1" fill="#38bdf8" opacity="0.8" />
+                    <!-- Label -->
+                    <text x="235" y="85" fill="#38bdf8" font-family="monospace" font-size="12" font-weight="bold" letter-spacing="0.05em">
+                        PLATFORM 1 &bull; MAX 300m
+                    </text>
+                    <text x="765" y="85" fill="#94a3b8" font-family="monospace" font-size="11" text-anchor="end">
+                        PF-1 BERTH
+                    </text>
+
+                    <!-- Buffer / Signal light -->
+                    <circle cx="95" cy="110" r="5" fill="#22c55e" />
+                </g>
+
+                <!-- PLATFORM 2 LANE (400m) -->
+                <g id="lanePlatform2">
+                    <!-- Steel rails -->
+                    <line x1="80" y1="226" x2="940" y2="226" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="234" x2="940" y2="234" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="230" x2="940" y2="230" stroke="#1e293b" stroke-width="8" stroke-dasharray="2 6" />
+
+                    <!-- Concrete Platform Berth -->
+                    <rect x="180" y="185" width="640" height="32" rx="6" fill="#131c2e" stroke="#34d399" stroke-width="1.5" filter="url(#platformShadow)" />
+                    <rect x="180" y="213" width="640" height="4" rx="1" fill="#34d399" opacity="0.8" />
+                    <text x="195" y="205" fill="#34d399" font-family="monospace" font-size="12" font-weight="bold" letter-spacing="0.05em">
+                        PLATFORM 2 &bull; MAX 400m
+                    </text>
+                    <text x="805" y="205" fill="#94a3b8" font-family="monospace" font-size="11" text-anchor="end">
+                        PF-2 BERTH
+                    </text>
+
+                    <circle cx="95" cy="230" r="5" fill="#22c55e" />
+                </g>
+
+                <!-- PLATFORM 3 LANE (500m) -->
+                <g id="lanePlatform3">
+                    <!-- Steel rails -->
+                    <line x1="80" y1="346" x2="940" y2="346" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="354" x2="940" y2="354" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="350" x2="940" y2="350" stroke="#1e293b" stroke-width="8" stroke-dasharray="2 6" />
+
+                    <!-- Concrete Platform Berth -->
+                    <rect x="130" y="305" width="740" height="32" rx="6" fill="#131c2e" stroke="#fbbf24" stroke-width="1.5" filter="url(#platformShadow)" />
+                    <rect x="130" y="333" width="740" height="4" rx="1" fill="#fbbf24" opacity="0.8" />
+                    <text x="145" y="325" fill="#fbbf24" font-family="monospace" font-size="12" font-weight="bold" letter-spacing="0.05em">
+                        PLATFORM 3 &bull; MAX 500m (ALL TRAINS)
+                    </text>
+                    <text x="855" y="325" fill="#94a3b8" font-family="monospace" font-size="11" text-anchor="end">
+                        PF-3 BERTH
+                    </text>
+
+                    <circle cx="95" cy="350" r="5" fill="#22c55e" />
+                </g>
+
+                <!-- Switch Interlocks & Connecting Turnouts -->
+                <path d="M 850 110 Q 920 170 940 230" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="4 4" />
+                <path d="M 850 350 Q 920 290 940 230" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="4 4" />
+
+                <!-- =========================================================================
+                     Staging Area (Right Edge)
+                     ========================================================================= -->
+                <g id="stagingYard">
+                    <!-- Shaded Staging Box -->
+                    <rect x="960" y="45" width="220" height="425" rx="10" fill="#0d1424" stroke="#26354f" stroke-width="1.5" stroke-dasharray="6 4" />
+                    <!-- Header -->
+                    <rect x="960" y="45" width="220" height="30" rx="10" fill="#182234" />
+                    <text x="1070" y="65" fill="#f8fafc" font-family="monospace" font-size="11" font-weight="bold" text-anchor="middle" letter-spacing="0.06em">
+                        STAGING &amp; QUEUE YARD
+                    </text>
+                    <text x="1070" y="455" fill="#64748b" font-family="monospace" font-size="10" text-anchor="middle">
+                        INCOMING &rarr; HOLDING SIDING
+                    </text>
+                </g>
+
+                <!-- Container Layer where Dynamic Animated Train Nodes Live -->
+                <g id="trainsLayer"></g>
+            </svg>
+
+            <!-- Map Priority Legend -->
+            <div class="map-legend">
+                <span style="color: var(--text-muted); font-weight: bold;">PRIORITY:</span>
+                <div class="legend-item">
+                    <span class="legend-color emergency"></span>
+                    <span style="color: #f87171;">EMERGENCY</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color connecting"></span>
+                    <span style="color: #fbbf24;">CONNECTING</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color scheduled"></span>
+                    <span style="color: #60a5fa;">SCHEDULED</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Real-time Event Console Output -->
+        <section style="margin-top: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">
+                    Animated Event Dispatch Log
+                </h2>
+                <span style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);">
+                    Updates in Sync with Simulation Clock
+                </span>
+            </div>
+            <div id="animationTerminalContainer"></div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div>Payanam Junction &bull; Mini-Project Team D16</div>
+            <div class="footer-tech">Java 17+ Backend Architecture &bull; Monospace Terminal UI</div>
+        </div>
+    </footer>
+
+    <!-- Shared Logic Scripts -->
+    <script src="sim.js"></script>
+    <script src="terminal-widget.js"></script>
+    <script>
+        /**
+         * =========================================================================
+         * PHASE 2 INTEGRATION HOOK:
+         *
+         * Currently, this animation mechanics layer plays against the hardcoded
+         * mock event sequence below (mockEventSequence).
+         *
+         * Once Platform Allocation & Schedule Preemption is implemented in Java
+         * and sim.js, replace `mockEventSequence` with real events parsed from
+         * `window.eventLog` or `RailwaySystem.getLiveDispatchQueue()`.
+         *
+         * Each event follows the exact schema:
+         *   { trainId: string, action: "arrive"|"assign"|"depart"|"waitlist", platformId?: string, timestamp: string }
+         * =========================================================================
+         */
+        const mockEventSequence = [
+            { trainId: "T001", action: "arrive", timestamp: "06:00" },
+            { trainId: "T001", action: "assign", platformId: "PF-2", timestamp: "06:05" },
+            { trainId: "T003", action: "arrive", timestamp: "06:10" },
+            { trainId: "T003", action: "assign", platformId: "PF-1", timestamp: "06:15" },
+            { trainId: "T005", action: "arrive", timestamp: "06:25" },
+            { trainId: "T005", action: "assign", platformId: "PF-3", timestamp: "06:30" },
+            { trainId: "T001", action: "depart", platformId: "PF-2", timestamp: "06:40" },
+            { trainId: "T004", action: "arrive", timestamp: "06:45" },
+            { trainId: "T004", action: "assign", platformId: "PF-2", timestamp: "06:50" },
+            { trainId: "T006", action: "arrive", timestamp: "06:55" },
+            { trainId: "T006", action: "waitlist", timestamp: "07:00" },
+            { trainId: "T003", action: "depart", platformId: "PF-1", timestamp: "07:10" },
+            { trainId: "T005", action: "depart", platformId: "PF-3", timestamp: "07:15" },
+            { trainId: "T006", action: "assign", platformId: "PF-3", timestamp: "07:20" },
+            { trainId: "T002", action: "arrive", timestamp: "07:25" },
+            { trainId: "T004", action: "depart", platformId: "PF-2", timestamp: "07:30" },
+            { trainId: "T002", action: "assign", platformId: "PF-2", timestamp: "07:35" }
+        ];
+
+        // Coordinate geometry for platforms and staging slots
+        const PLATFORM_COORDS = {
+            "PF-1": { x: 380, y: 95 },
+            "PF-2": { x: 380, y: 215 },
+            "PF-3": { x: 380, y: 335 }
+        };
+
+        const STAGING_X = 975;
+        const STAGING_Y_START = 85;
+        const STAGING_Y_GAP = 55;
+
+        // Runtime animation state
+        let currentStepIndex = 0;
+        let isPlaying = false;
+        let playbackTimer = null;
+        let currentSpeed = 1; // 1x, 5x, 20x
+        const BASE_DELAY_MS = 2000;
+
+        // Tracks live train icons in the SVG map: trainId -> { element, currentSlot, status }
+        const liveTrainNodes = new Map();
+        const stagingOccupancy = [null, null, null, null, null, null]; // 6 staging slots
+
+        // Terminal lines emitted by this animation
+        const animationTerminalLogs = [];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            renderTerminal("animationTerminalContainer", animationTerminalLogs, "STATION DISPATCHER TERMINAL");
+
+            // Handle nav reset
+            const resetBtn = document.getElementById("btnResetState");
+            if (resetBtn) {
+                resetBtn.addEventListener("click", () => {
+                    if (confirm("Reset all reservations and logs to initial state?")) {
+                        window.railwaySystem.reset();
+                        resetAnimation();
+                    }
+                });
+            }
+        });
+
+        /**
+         * Toggles Play / Pause playback
+         */
+        function togglePlayPause() {
+            isPlaying = !isPlaying;
+            updatePlayButtonUI();
+
+            if (isPlaying) {
+                if (currentStepIndex >= mockEventSequence.length) {
+                    resetAnimation();
+                    isPlaying = true;
+                    updatePlayButtonUI();
+                }
+                executeNextStep();
+            } else {
+                if (playbackTimer) clearTimeout(playbackTimer);
+            }
+        }
+
+        function updatePlayButtonUI() {
+            const btn = document.getElementById("btnPlayPause");
+            const icon = document.getElementById("playIcon");
+            const text = document.getElementById("playText");
+
+            if (isPlaying) {
+                btn.classList.add("paused");
+                icon.textContent = "⏸";
+                text.textContent = "Pause";
+            } else {
+                btn.classList.remove("paused");
+                icon.textContent = "▶";
+                text.textContent = "Play";
+            }
+        }
+
+        /**
+         * Sets playback speed: 1x, 5x, or 20x
+         */
+        function setSpeed(speedMultiplier) {
+            currentSpeed = speedMultiplier;
+
+            document.querySelectorAll(".btn-speed").forEach(btn => {
+                btn.classList.toggle("active", parseInt(btn.dataset.speed, 10) === speedMultiplier);
+            });
+
+            // Update transition speed on existing train nodes in DOM
+            const transitionDuration = (1.5 / currentSpeed).toFixed(2);
+            document.querySelectorAll(".train-node").forEach(node => {
+                node.style.transition = `transform ${transitionDuration}s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease`;
+            });
+        }
+
+        /**
+         * Resets animation to step 0
+         */
+        function resetAnimation() {
+            if (playbackTimer) clearTimeout(playbackTimer);
+            isPlaying = false;
+            updatePlayButtonUI();
+
+            currentStepIndex = 0;
+            liveTrainNodes.clear();
+            for (let i = 0; i < stagingOccupancy.length; i++) stagingOccupancy[i] = null;
+
+            // Clear SVG trains layer
+            const layer = document.getElementById("trainsLayer");
+            if (layer) layer.innerHTML = "";
+
+            // Reset clock readout
+            document.getElementById("clockReadout").textContent = "06:00";
+            document.getElementById("stepCounterPill").textContent = `Step: 0 / ${mockEventSequence.length}`;
+
+            // Reset terminal
+            animationTerminalLogs.length = 0;
+            animationTerminalLogs.push("[SYSTEM] Animation reset. Click Play to start dispatcher sequence.");
+            renderTerminal("animationTerminalContainer", animationTerminalLogs, "STATION DISPATCHER TERMINAL");
+        }
+
+        /**
+         * Executes the next event in mockEventSequence
+         */
+        function executeNextStep() {
+            if (!isPlaying) return;
+
+            if (currentStepIndex >= mockEventSequence.length) {
+                isPlaying = false;
+                updatePlayButtonUI();
+                animationTerminalLogs.push(`[SYSTEM] Dispatcher sequence finished at ${document.getElementById("clockReadout").textContent}.`);
+                renderTerminal("animationTerminalContainer", animationTerminalLogs, "STATION DISPATCHER TERMINAL");
+                return;
+            }
+
+            const event = mockEventSequence[currentStepIndex];
+            processEvent(event);
+
+            currentStepIndex++;
+            document.getElementById("stepCounterPill").textContent = `Step: ${currentStepIndex} / ${mockEventSequence.length}`;
+
+            if (isPlaying && currentStepIndex < mockEventSequence.length) {
+                const stepDelay = Math.max(100, BASE_DELAY_MS / currentSpeed);
+                playbackTimer = setTimeout(executeNextStep, stepDelay);
+            } else if (currentStepIndex >= mockEventSequence.length) {
+                isPlaying = false;
+                updatePlayButtonUI();
+            }
+        }
+
+        /**
+         * Processes an individual animation event:
+         *  - "arrive"
+         *  - "assign"
+         *  - "depart"
+         *  - "waitlist"
+         */
+        function processEvent(event) {
+            const { trainId, action, platformId, timestamp } = event;
+
+            // Advance simulation clock
+            if (timestamp) {
+                document.getElementById("clockReadout").textContent = timestamp;
+            }
+
+            // Retrieve train details from RailwaySystem
+            const train = window.railwaySystem.trains.get(trainId);
+            const trainName = train ? train.name : trainId;
+            const priority = train ? train.priority : "SCHEDULED";
+            const priorityClass = priority.toLowerCase();
+
+            const layer = document.getElementById("trainsLayer");
+
+            if (action === "arrive") {
+                // Find first free slot in staging area
+                let freeSlot = stagingOccupancy.indexOf(null);
+                if (freeSlot === -1) freeSlot = 0; // fallback
+                stagingOccupancy[freeSlot] = trainId;
+
+                const startY = STAGING_Y_START + freeSlot * STAGING_Y_GAP;
+                const startX = STAGING_X;
+
+                // Create SVG Train Node
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.id = `train_node_${trainId}`;
+                g.setAttribute("class", `train-node ${priorityClass}`);
+                const transDuration = (1.5 / currentSpeed).toFixed(2);
+                g.style.transition = `transform ${transDuration}s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease`;
+                g.style.opacity = "0";
+
+                // Initial position at staging
+                g.style.transform = `translate(${startX}px, ${startY}px)`;
+
+                // Train graphics: rounded rect body, priority color, label text
+                g.innerHTML = `
+                    <rect width="190" height="38" rx="7" />
+                    <!-- Front cab indicator -->
+                    <path d="M 12 10 L 4 19 L 12 28 Z" fill="#ffffff" opacity="0.6"/>
+                    <text x="22" y="24" fill="#ffffff" font-family="monospace" font-size="12" font-weight="bold">
+                        ${trainId}
+                    </text>
+                    <text x="65" y="24" fill="#ffffff" font-family="sans-serif" font-size="11" font-weight="500" opacity="0.95">
+                        ${escapeXml(truncate(trainName, 15))}
+                    </text>
+                    <text class="status-indicator-tag" x="180" y="24" fill="#ffffff" font-family="monospace" font-size="10" text-anchor="end" opacity="0.8">
+                        ${priority.slice(0, 3)}
+                    </text>
+                `;
+
+                layer.appendChild(g);
+
+                // Trigger fade-in
+                requestAnimationFrame(() => {
+                    g.style.opacity = "1";
+                });
+
+                liveTrainNodes.set(trainId, { element: g, stagingSlot: freeSlot, currentPlatform: null });
+
+                // Emit formatted terminal log line matching prompt
+                const logLine = `${timestamp} — Train ${trainId} (${priority}) arrived in staging yard`;
+                animationTerminalLogs.push(logLine);
+                renderTerminal("animationTerminalContainer", animationTerminalLogs, "STATION DISPATCHER TERMINAL");
+
+            } else if (action === "assign") {
+                const nodeInfo = liveTrainNodes.get(trainId);
+                if (!nodeInfo) return;
+
+                const { element, stagingSlot } = nodeInfo;
+                if (stagingSlot !== null && stagingSlot !== undefined) {
+                    stagingOccupancy[stagingSlot] = null; // Free up staging slot
+                    nodeInfo.stagingSlot = null;
+                }
+
+                // Remove waitlist styling if it was waitlisted previously
+                element.classList.remove("waitlisted");
+                const tag = element.querySelector(".status-indicator-tag");
+                if (tag) tag.textContent = priority.slice(0, 3);
+
+                // Animate to platform coordinates
+                const target = PLATFORM_COORDS[platformId] || { x: 380, y: 215 };
+                const transDuration = (1.5 / currentSpeed).toFixed(2);
+                element.style.transition = `transform ${transDuration}s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease`;
+                element.style.transform = `translate(${target.x}px, ${target.y}px)`;
+
+                nodeInfo.currentPlatform = platformId;
+
+                // Emit formatted log line
+                const logLine = `${timestamp} — Train ${trainId} (${priority}) assigned to Platform ${platformId.replace("PF-", "")}`;
+                animationTerminalLogs.push(logLine);
+                renderTerminal("animationTerminalContainer", animationTerminalLogs, "STATION DISPATCHER TERMINAL");
+
+            } else if (action === "depart") {
+                const nodeInfo = liveTrainNodes.get(trainId);
+                if (!nodeInfo) return;
+
+                const { element, currentPlatform } = nodeInfo;
+                const platformY = PLATFORM_COORDS[currentPlatform] ? PLATFORM_COORDS[currentPlatform].y : 215;
+
+                // Animate off to the left edge (Westbound mainline exit)
+                const transDuration = (1.5 / currentSpeed).toFixed(2);
+                element.style.transition = `transform ${transDuration}s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease`;
+                element.style.transform = `translate(-250px, ${platformY}px)`;
+                element.style.opacity = "0";
+
+                // Remove from live nodes after animation finishes
+                setTimeout(() => {
+                    if (element.parentNode) {
+                        element.parentNode.removeChild(element);
+                    }
+                    liveTrainNodes.delete(trainId);
+                }, (1.5 / currentSpeed) * 1000);
+
+                // Emit log line
+                const pfNum = currentPlatform ? currentPlatform.replace("PF-", "") : "Platform";
+                const logLine = `${timestamp} — Train ${trainId} (${priority}) departed from Platform ${pfNum} &rarr; Mainline`;
+                animationTerminalLogs.push(logLine);
+                renderTerminal("animationTerminalContainer", animationTerminalLogs, "STATION DISPATCHER TERMINAL");
+
+            } else if (action === "waitlist") {
+                const nodeInfo = liveTrainNodes.get(trainId);
+                if (!nodeInfo) return;
+
+                const { element } = nodeInfo;
+
+                // Apply dashed amber outline and waiting tag
+                element.classList.add("waitlisted");
+                const tag = element.querySelector(".status-indicator-tag");
+                if (tag) {
+                    tag.textContent = "WAIT";
+                    tag.setAttribute("fill", "#fbbf24");
+                }
+
+                // Emit log line
+                const logLine = `${timestamp} — Train ${trainId} (${priority}) waitlisted — all platforms occupied / holding in siding`;
+                animationTerminalLogs.push(logLine);
+                renderTerminal("animationTerminalContainer", animationTerminalLogs, "STATION DISPATCHER TERMINAL");
+            }
+        }
+
+        function truncate(str, maxLen) {
+            if (!str) return "";
+            return str.length > maxLen ? str.slice(0, maxLen - 1) + "…" : str;
+        }
+
+        function escapeXml(str) {
+            if (!str) return "";
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seat Reservations - Payanam Junction</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">
+                <span class="nav-logo-icon">🚄</span>
+                <div class="nav-brand-text">
+                    <span class="nav-brand-title">PAYANAM JUNCTION</span>
+                    <span class="nav-brand-sub">Railway Reservation Prototype</span>
+                </div>
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html" class="nav-link">Home</a></li>
+                <li><a href="reservations.html" class="nav-link active">Reservations</a></li>
+                <li><a href="platform-allocation.html" class="nav-link">Platform Allocation</a></li>
+                <li><a href="test-scenarios.html" class="nav-link">Test Scenarios</a></li>
+                <li><a href="animation.html" class="nav-link">Animation</a></li>
+            </ul>
+            <div class="nav-actions">
+                <button id="btnResetState" class="btn-reset" title="Reset all trains to empty state">
+                    <span>↺</span> Reset System
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="page-header">
+            <h1 class="page-title">Train Seat Reservation &amp; Waitlist Management</h1>
+            <p class="page-desc">
+                Interactive booking grid for all 6 train services. Each train has a strictly enforced 10-passenger capacity. When a train reaches 10 confirmed seats, subsequent passengers are enqueued into a First-Come, First-Served (FIFO) waiting list. Cancelling any confirmed booking automatically promotes the front waiting passenger into the newly freed seat.
+            </p>
+        </header>
+
+        <!-- 6 Train Cards with Seat Grids & Mini Terminals -->
+        <section class="reservation-trains-grid" id="reservationCardsContainer">
+            <!-- Dynamically populated -->
+        </section>
+
+        <!-- Full Combined Console Output -->
+        <section style="margin-top: 3rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">
+                    Combined System Console Stream
+                </h2>
+                <span style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);">
+                    All Trains &bull; Real-time Event Stream
+                </span>
+            </div>
+            <div id="fullReservationsTerminal"></div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div>Payanam Junction &bull; Mini-Project Team D16</div>
+            <div class="footer-tech">Java 17+ Backend Architecture &bull; Monospace Terminal UI</div>
+        </div>
+    </footer>
+
+    <!-- Shared Logic Scripts -->
+    <script src="sim.js"></script>
+    <script src="terminal-widget.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            renderAllTrainCards();
+
+            // Handle Reset button
+            document.getElementById("btnResetState").addEventListener("click", () => {
+                if (confirm("Reset all reservations and logs to initial state?")) {
+                    window.railwaySystem.reset();
+                    renderAllTrainCards();
+                }
+            });
+        });
+
+        function renderAllTrainCards() {
+            const trains = window.railwaySystem.listAllTrains();
+            const container = document.getElementById("reservationCardsContainer");
+            container.innerHTML = "";
+
+            trains.forEach(train => {
+                const card = createTrainReservationCard(train);
+                container.appendChild(card);
+
+                // Render this train's dedicated terminal panel
+                const trainLines = window.eventLog.filter(line => line.includes(train.id));
+                renderTerminal(`terminal_${train.id}`, trainLines, `${train.id} TERMINAL STREAM`);
+            });
+
+            // Render full terminal
+            renderTerminal("fullReservationsTerminal", window.eventLog, "COMBINED SYSTEM CONSOLE STREAM");
+        }
+
+        function createTrainReservationCard(train) {
+            const card = document.createElement("div");
+            card.className = "res-card";
+            card.id = `card_${train.id}`;
+
+            let priorityClass = "scheduled";
+            if (train.priority === "EMERGENCY") priorityClass = "emergency";
+            else if (train.priority === "CONNECTING") priorityClass = "connecting";
+
+            // Build 10-box visual seat grid
+            // Map confirmed reservations by seatNumber
+            const seatMap = new Map();
+            train.confirmedReservations.forEach(res => {
+                seatMap.set(res.seatNumber, res);
+            });
+
+            let seatBoxesHtml = "";
+            for (let seatNum = 1; seatNum <= train.capacity; seatNum++) {
+                const res = seatMap.get(seatNum);
+                if (res) {
+                    seatBoxesHtml += `
+                        <div class="seat-box filled" title="Seat #${seatNum}: ${escapeHtml(res.passenger.name)} (${res.passenger.id}) - Reservation: ${res.id} (Click to select for cancel)" onclick="selectSeatForCancel('${train.id}', '${res.id}')">
+                            <span class="seat-num">#${seatNum}</span>
+                            <span class="seat-passenger-tag">${escapeHtml(res.passenger.name)}</span>
+                            <span class="seat-res-id">${res.id}</span>
+                        </div>
+                    `;
+                } else {
+                    seatBoxesHtml += `
+                        <div class="seat-box empty" title="Seat #${seatNum}: Available">
+                            <span class="seat-num">#${seatNum}</span>
+                            <span class="seat-status-tag">Empty</span>
+                        </div>
+                    `;
+                }
+            }
+
+            // Waiting list information
+            const waitingCount = train.getWaitingCount();
+            let waitingHtml = "";
+            if (waitingCount > 0) {
+                const waitingNames = train.waitingQueue.map((p, i) => `${i + 1}. ${p.name} (${p.id})`).join(", ");
+                waitingHtml = `
+                    <div class="waiting-badge-container">
+                        <span class="wait-label">&#x23F3; Waiting List (${waitingCount}):</span>
+                        <span class="wait-names" title="${waitingNames}">
+                            ${waitingNames.length > 32 ? waitingNames.slice(0, 32) + '...' : waitingNames}
+                        </span>
+                    </div>
+                `;
+            } else {
+                waitingHtml = `
+                    <div class="waiting-badge-container" style="background: rgba(255,255,255,0.03); border-color: var(--border-subtle);">
+                        <span class="wait-label" style="color: var(--text-muted);">&#x2714; Waiting List:</span>
+                        <span style="color: var(--text-muted); font-size: 0.8rem;">No waitlisted passengers</span>
+                    </div>
+                `;
+            }
+
+            card.innerHTML = `
+                <div>
+                    <div class="res-card-header">
+                        <div>
+                            <span class="train-id-badge">${train.id}</span>
+                            <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin-top: 0.25rem;">
+                                ${train.name}
+                            </h3>
+                            <div class="res-train-meta">
+                                Schedule: ${train.arrival} &rarr; ${train.departure} &bull; ${train.length}m
+                            </div>
+                        </div>
+                        <span class="priority-badge ${priorityClass}">${train.priority}</span>
+                    </div>
+
+                    <!-- 10-Box Visual Seat Grid -->
+                    <div class="seat-grid-container" style="margin-top: 1rem;">
+                        <div class="seat-grid-label">
+                            <span>10-Seat Capacity Grid</span>
+                            <span style="color: ${train.getAvailableSeats() > 0 ? '#34d399' : '#f87171'};">
+                                ${train.getAvailableSeats()} Available / ${train.confirmedReservations.length} Booked
+                            </span>
+                        </div>
+                        <div class="seat-grid">
+                            ${seatBoxesHtml}
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 0.85rem;">
+                        ${waitingHtml}
+                    </div>
+                </div>
+
+                <!-- Action Controls Panel -->
+                <div class="res-actions-panel">
+                    <!-- Book Seat Form -->
+                    <div class="action-row">
+                        <input type="text" id="nameInput_${train.id}" class="input-control" placeholder="Passenger Name (e.g. Priya)" />
+                        <button class="btn-action" onclick="handleBookSeat('${train.id}')">
+                            + Book Seat
+                        </button>
+                    </div>
+
+                    <!-- Cancel Booking Form -->
+                    <div class="action-row">
+                        <input type="text" id="cancelInput_${train.id}" class="input-control" placeholder="Reservation ID (e.g. R001)" />
+                        <button class="btn-action cancel" onclick="handleCancelBooking('${train.id}')">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dedicated Terminal Stream for this Train -->
+                <div class="mini-terminal-container">
+                    <div id="terminal_${train.id}"></div>
+                </div>
+            `;
+
+            return card;
+        }
+
+        // Action Handlers
+        window.handleBookSeat = function(trainId) {
+            const input = document.getElementById(`nameInput_${trainId}`);
+            let passengerName = input ? input.value.trim() : "";
+
+            if (!passengerName) {
+                passengerName = prompt("Enter passenger name for booking:", "Arun");
+                if (!passengerName) return;
+            }
+
+            const passengerId = window.railwaySystem.generatePassengerId();
+            window.railwaySystem.bookSeat(trainId, passengerId, passengerName);
+
+            if (input) input.value = "";
+            renderAllTrainCards();
+        };
+
+        window.handleCancelBooking = function(trainId) {
+            const input = document.getElementById(`cancelInput_${trainId}`);
+            let reservationId = input ? input.value.trim() : "";
+
+            if (!reservationId) {
+                reservationId = prompt("Enter Reservation ID to cancel (e.g. R001):");
+                if (!reservationId) return;
+            }
+
+            window.railwaySystem.cancelBooking(trainId, reservationId.toUpperCase());
+
+            if (input) input.value = "";
+            renderAllTrainCards();
+        };
+
+        // Click a filled seat box to quickly select it for cancellation
+        window.selectSeatForCancel = function(trainId, reservationId) {
+            const input = document.getElementById(`cancelInput_${trainId}`);
+            if (input) {
+                input.value = reservationId;
+                input.focus();
+            }
+        };
+    </script>
+</body>
+</html>

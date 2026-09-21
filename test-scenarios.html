@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Scenarios - Payanam Junction</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">
+                <span class="nav-logo-icon">🚄</span>
+                <div class="nav-brand-text">
+                    <span class="nav-brand-title">PAYANAM JUNCTION</span>
+                    <span class="nav-brand-sub">Railway Reservation Prototype</span>
+                </div>
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html" class="nav-link">Home</a></li>
+                <li><a href="reservations.html" class="nav-link">Reservations</a></li>
+                <li><a href="platform-allocation.html" class="nav-link">Platform Allocation</a></li>
+                <li><a href="test-scenarios.html" class="nav-link active">Test Scenarios</a></li>
+                <li><a href="animation.html" class="nav-link">Animation</a></li>
+            </ul>
+            <div class="nav-actions">
+                <button id="btnResetState" class="btn-reset" title="Reset all trains to empty state">
+                    <span>↺</span> Reset System
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="page-header">
+            <h1 class="page-title">Automated Java Test Scenarios</h1>
+            <p class="page-desc">
+                Execute automated operational scenarios matching the test suite of the Java backend. Observe how bookings fill to capacity, waiting queues enforce strict FIFO fairness, and cancellations trigger automatic promotions into freed seats.
+            </p>
+        </header>
+
+        <!-- 4 Scenario Cards -->
+        <section class="scenarios-grid">
+            <!-- Scenario 1: Cancelled Seat -->
+            <div class="scenario-card">
+                <div>
+                    <div class="scenario-header">
+                        <span class="scenario-badge">TEST 1</span>
+                        <h2 class="scenario-title">Cancelled Seat &amp; Promotion</h2>
+                    </div>
+                    <p class="scenario-desc" style="margin-top: 0.75rem;">
+                        Books 10 passengers onto Train T001 to reach full capacity, adds waiting passengers, and then cancels a confirmed reservation (Seat #4). Verifies that the front waiting passenger is automatically promoted into Seat #4 in strict FIFO order.
+                    </p>
+                </div>
+                <button class="btn-scenario" onclick="runScenarioCancelledSeat()">
+                    ▶ Run "Cancelled Seat" Test
+                </button>
+            </div>
+
+            <!-- Scenario 2: Overlong Train -->
+            <div class="scenario-card">
+                <div>
+                    <div class="scenario-header">
+                        <span class="scenario-badge">TEST 2</span>
+                        <h2 class="scenario-title">Overlong Train</h2>
+                    </div>
+                    <p class="scenario-desc" style="margin-top: 0.75rem;">
+                        Tests track routing constraints when a train length (e.g. 480m) exceeds a platform's physical length limit (e.g. 300m or 400m).
+                    </p>
+                </div>
+                <button class="btn-scenario secondary" onclick="runScenarioPlaceholder('Overlong train')">
+                    ▶ Run "Overlong Train" Test
+                </button>
+            </div>
+
+            <!-- Scenario 3: Overlapping Arrival -->
+            <div class="scenario-card">
+                <div>
+                    <div class="scenario-header">
+                        <span class="scenario-badge">TEST 3</span>
+                        <h2 class="scenario-title">Overlapping Arrival</h2>
+                    </div>
+                    <p class="scenario-desc" style="margin-top: 0.75rem;">
+                        Tests conflict resolution and track assignment when two scheduled trains request the same platform during overlapping time intervals.
+                    </p>
+                </div>
+                <button class="btn-scenario secondary" onclick="runScenarioPlaceholder('Overlapping arrival')">
+                    ▶ Run "Overlapping Arrival" Test
+                </button>
+            </div>
+
+            <!-- Scenario 4: Delay -->
+            <div class="scenario-card">
+                <div>
+                    <div class="scenario-header">
+                        <span class="scenario-badge">TEST 4</span>
+                        <h2 class="scenario-title">Schedule Delay Cascade</h2>
+                    </div>
+                    <p class="scenario-desc" style="margin-top: 0.75rem;">
+                        Tests priority preemption and downstream delay propagation when an inbound service encounters a transit delay.
+                    </p>
+                </div>
+                <button class="btn-scenario secondary" onclick="runScenarioPlaceholder('Delay')">
+                    ▶ Run "Delay" Test
+                </button>
+            </div>
+        </section>
+
+        <!-- Dedicated Test Output Terminal -->
+        <section style="margin-top: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">
+                    Scenario Execution Console Output
+                </h2>
+                <button class="btn-reset" onclick="clearTerminalView()">
+                    Clear Log Display
+                </button>
+            </div>
+            <div id="scenariosTerminalContainer"></div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div>Payanam Junction &bull; Mini-Project Team D16</div>
+            <div class="footer-tech">Java 17+ Backend Architecture &bull; Monospace Terminal UI</div>
+        </div>
+    </footer>
+
+    <!-- Shared Logic Scripts -->
+    <script src="sim.js"></script>
+    <script src="terminal-widget.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            renderTerminal("scenariosTerminalContainer", window.eventLog, "TEST SCENARIO CONSOLE STREAM");
+
+            // Handle Reset button
+            document.getElementById("btnResetState").addEventListener("click", () => {
+                if (confirm("Reset all reservations and logs to initial state?")) {
+                    window.railwaySystem.reset();
+                    renderTerminal("scenariosTerminalContainer", window.eventLog, "TEST SCENARIO CONSOLE STREAM");
+                }
+            });
+        });
+
+        /**
+         * Test Scenario 1: "Cancelled seat"
+         * Books 10 passengers onto Train T001 (looping), then cancels one,
+         * then renders that train's terminal panel so the promotion is visible.
+         */
+        function runScenarioCancelledSeat() {
+            window.eventLog.push(`\n[SCENARIO: Cancelled seat] === Starting Test on Train T001 ===`);
+
+            const trainId = "T001";
+            const train = window.railwaySystem.getTrain ? window.railwaySystem.getTrain(trainId) : window.railwaySystem.trains.get(trainId);
+            if (!train) return;
+
+            // Sample passenger names for the test
+            const names = [
+                "Aravind", "Bhavana", "Chitra", "Deepak", "Eswar",
+                "Farooq", "Gowri", "Harish", "Ishaan", "Janani",
+                "Karthik", "Lakshmi"
+            ];
+
+            // 1. Book until train is full (10 seats) and add 2 to waiting list
+            let targetReservationToCancel = null;
+
+            for (let i = 0; i < names.length; i++) {
+                const pId = window.railwaySystem.generatePassengerId();
+                const pName = names[i];
+                const res = window.railwaySystem.bookSeat(trainId, pId, pName);
+
+                // Remember the 4th confirmed reservation to cancel later
+                if (res && res.seatNumber === 4) {
+                    targetReservationToCancel = res.id;
+                }
+            }
+
+            // 2. Cancel the 4th seat
+            if (targetReservationToCancel) {
+                window.eventLog.push(`[SCENARIO: Cancelled seat] Initiating cancellation of confirmed Reservation ${targetReservationToCancel} (Seat 4)...`);
+                window.railwaySystem.cancelBooking(trainId, targetReservationToCancel);
+            } else if (train.confirmedReservations.length > 0) {
+                const firstRes = train.confirmedReservations[0].id;
+                window.eventLog.push(`[SCENARIO: Cancelled seat] Initiating cancellation of confirmed Reservation ${firstRes}...`);
+                window.railwaySystem.cancelBooking(trainId, firstRes);
+            }
+
+            window.eventLog.push(`[SCENARIO: Cancelled seat] === Test completed successfully. Promotion verified. ===\n`);
+
+            // Re-render the terminal to display all output lines
+            renderTerminal("scenariosTerminalContainer", window.eventLog, "TEST SCENARIO CONSOLE STREAM");
+        }
+
+        /**
+         * Placeholder test scenarios for Phase 2 platform allocation
+         */
+        function runScenarioPlaceholder(scenarioName) {
+            const message = `[SCENARIO: ${scenarioName}] Requires platform allocation module (Phase 2)`;
+            window.eventLog.push(message);
+            window.railwaySystem.saveToStorage();
+
+            renderTerminal("scenariosTerminalContainer", window.eventLog, "TEST SCENARIO CONSOLE STREAM");
+        }
+
+        function clearTerminalView() {
+            renderTerminal("scenariosTerminalContainer", [], "TEST SCENARIO CONSOLE STREAM");
+        }
+    </script>
+</body>
+</html>

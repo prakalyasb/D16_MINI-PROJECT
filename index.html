@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payanam Junction - Railway Reservation System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">
+                <span class="nav-logo-icon">🚄</span>
+                <div class="nav-brand-text">
+                    <span class="nav-brand-title">PAYANAM JUNCTION</span>
+                    <span class="nav-brand-sub">Railway Reservation Prototype</span>
+                </div>
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html" class="nav-link active">Home</a></li>
+                <li><a href="reservations.html" class="nav-link">Reservations</a></li>
+                <li><a href="platform-allocation.html" class="nav-link">Platform Allocation</a></li>
+                <li><a href="test-scenarios.html" class="nav-link">Test Scenarios</a></li>
+                <li><a href="animation.html" class="nav-link">Animation</a></li>
+            </ul>
+            <div class="nav-actions">
+                <button id="btnResetState" class="btn-reset" title="Reset all trains to empty state">
+                    <span>↺</span> Reset System
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Page Header -->
+        <header class="page-header">
+            <h1 class="page-title">Railway Reservation &amp; Traffic Management System</h1>
+            <p class="page-desc">
+                Welcome to Payanam Junction — a web simulation of our Java 17+ Railway Reservation System. This architecture models core train services with fixed 10-seat capacities, strict First-In-First-Out (FIFO) waiting list queues, automatic promotion upon cancellation, and platform length constraints. All actions stream live output to terminal console panels below, mirroring Java console application output.
+            </p>
+        </header>
+
+        <!-- High-level Stats Overview -->
+        <section class="stats-bar">
+            <div class="stat-card">
+                <span class="stat-card-label">Active Train Services</span>
+                <span class="stat-card-value cyan" id="statTotalTrains">6</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-card-label">Confirmed Seats Booked</span>
+                <span class="stat-card-value green" id="statConfirmedSeats">0 / 60</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-card-label">Passengers on Waiting List</span>
+                <span class="stat-card-value amber" id="statWaitingList">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-card-label">Available Platforms</span>
+                <span class="stat-card-value" id="statPlatforms">3 (Ready)</span>
+            </div>
+        </section>
+
+        <!-- Train Summary Dashboard Grid -->
+        <section>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">Live Train Services (Capacity: 10 Seats)</h2>
+                <a href="reservations.html" style="font-size: 0.88rem; color: var(--terminal-cyan); text-decoration: none; font-weight: 600;">
+                    Manage Bookings &rarr;
+                </a>
+            </div>
+
+            <div class="dashboard-grid" id="trainsDashboardGrid">
+                <!-- Dynamically rendered by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Global Live Terminal Output Panel -->
+        <section style="margin-top: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">
+                    System Console Event Stream
+                </h2>
+                <span style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);">
+                    Mirrors Java Console Application Output
+                </span>
+            </div>
+
+            <div id="homeTerminalContainer">
+                <!-- Rendered by terminal-widget.js -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div>Payanam Junction &bull; Mini-Project Team D16</div>
+            <div class="footer-tech">Java 17+ Backend Architecture &bull; Monospace Terminal UI</div>
+        </div>
+    </footer>
+
+    <!-- Shared Logic Scripts -->
+    <script src="sim.js"></script>
+    <script src="terminal-widget.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            renderDashboard();
+
+            // Handle Reset button
+            document.getElementById("btnResetState").addEventListener("click", () => {
+                if (confirm("Reset all reservations and logs to initial state?")) {
+                    window.railwaySystem.reset();
+                    renderDashboard();
+                }
+            });
+        });
+
+        function renderDashboard() {
+            const trains = window.railwaySystem.listAllTrains();
+            const grid = document.getElementById("trainsDashboardGrid");
+            grid.innerHTML = "";
+
+            let totalConfirmed = 0;
+            let totalWaiting = 0;
+
+            trains.forEach(train => {
+                const available = train.getAvailableSeats();
+                const confirmed = train.confirmedReservations.length;
+                const waiting = train.getWaitingCount();
+
+                totalConfirmed += confirmed;
+                totalWaiting += waiting;
+
+                const percentFull = (confirmed / train.capacity) * 100;
+                const isFull = train.isFull();
+
+                let statusBadgeClass = "scheduled";
+                if (train.priority === "EMERGENCY") statusBadgeClass = "emergency";
+                else if (train.priority === "CONNECTING") statusBadgeClass = "connecting";
+
+                let operationalStatus = "AVAILABLE";
+                let statusColor = "#10b981";
+                if (isFull && waiting > 0) {
+                    operationalStatus = `WAITLIST (${waiting})`;
+                    statusColor = "#f59e0b";
+                } else if (isFull) {
+                    operationalStatus = "FULL (10/10)";
+                    statusColor = "#ef4444";
+                }
+
+                const card = document.createElement("div");
+                card.className = "train-card";
+                card.innerHTML = `
+                    <div>
+                        <div class="train-header">
+                            <div>
+                                <span class="train-id-badge">${train.id}</span>
+                                <h3 class="train-name">${train.name}</h3>
+                            </div>
+                            <span class="priority-badge ${statusBadgeClass}">${train.priority}</span>
+                        </div>
+
+                        <div class="seat-progress-container">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.35rem;">
+                                <span style="color: var(--text-muted); font-weight: 500;">Seats: ${confirmed} / ${train.capacity}</span>
+                                <span style="color: ${statusColor}; font-weight: 700; font-family: var(--font-mono);">${operationalStatus}</span>
+                            </div>
+                            <div class="seat-progress-bar-bg">
+                                <div class="seat-progress-fill ${isFull ? 'full' : ''}" style="width: ${percentFull}%;"></div>
+                            </div>
+                        </div>
+
+                        <ul class="train-details-list">
+                            <li class="train-detail-row">
+                                <span class="train-detail-label">Available Seats:</span>
+                                <span class="train-detail-val" style="color: ${available > 0 ? '#34d399' : '#f87171'}">${available} / 10</span>
+                            </li>
+                            <li class="train-detail-row">
+                                <span class="train-detail-label">Waiting List:</span>
+                                <span class="train-detail-val" style="color: ${waiting > 0 ? '#fbbf24' : 'inherit'}">${waiting} passengers</span>
+                            </li>
+                            <li class="train-detail-row">
+                                <span class="train-detail-label">Schedule:</span>
+                                <span class="train-detail-val">${train.arrival} &rarr; ${train.departure}</span>
+                            </li>
+                            <li class="train-detail-row">
+                                <span class="train-detail-label">Train Length:</span>
+                                <span class="train-detail-val">${train.length} meters</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div style="margin-top: 1rem; pt: 0.75rem; border-top: 1px solid var(--border-subtle);">
+                        <a href="reservations.html" class="btn-action" style="display: block; text-align: center; text-decoration: none; padding: 0.5rem;">
+                            Open Booking Grid &rarr;
+                        </a>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+
+            // Update stats bar
+            document.getElementById("statConfirmedSeats").textContent = `${totalConfirmed} / 60`;
+            document.getElementById("statWaitingList").textContent = `${totalWaiting}`;
+
+            // Render live terminal output
+            renderTerminal("homeTerminalContainer", window.eventLog, "PAYANAM CENTRAL CONSOLE LOG");
+        }
+    </script>
+</body>
+</html>
