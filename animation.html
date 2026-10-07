@@ -28,6 +28,43 @@
             flex-wrap: wrap;
         }
 
+        /* Mode Toggle Group */
+        .mode-toggle-group {
+            display: flex;
+            background-color: #0b0f19;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+        }
+
+        .btn-mode {
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            padding: 0.55rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .btn-mode:not(:last-child) {
+            border-right: 1px solid var(--border-color);
+        }
+
+        .btn-mode:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .btn-mode.active {
+            background-color: #3b82f6;
+            color: #ffffff;
+        }
+
         .btn-anim-play {
             background: linear-gradient(135deg, #10b981, #059669);
             color: #ffffff;
@@ -206,6 +243,54 @@
             to { opacity: 1; }
         }
 
+        /* Timeline Drag & Drop Styles */
+        .train-node.manual-draggable {
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .train-node.manual-draggable.is-dragging {
+            cursor: grabbing !important;
+            filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.9)) !important;
+        }
+
+        .train-node.manual-draggable.valid-hover .train-boundary-box {
+            stroke: #22c55e !important;
+            stroke-width: 3px !important;
+            filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.95)) !important;
+        }
+
+        .train-node.manual-draggable.conflict-hover .train-boundary-box {
+            stroke: #ef4444 !important;
+            stroke-width: 3px !important;
+            filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.95)) !important;
+        }
+
+        /* Platform Flash Highlights */
+        @keyframes platformFlashRed {
+            0% { filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.9)); stroke: #ef4444; }
+            50% { filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.4)); stroke: #ef4444; }
+            100% { filter: none; }
+        }
+
+        .platform-lane.flash-red rect {
+            stroke: #ef4444 !important;
+            animation: platformFlashRed 1s ease-in-out;
+        }
+
+        @keyframes nodeFlashGreen {
+            0% { filter: drop-shadow(0 0 18px rgba(34, 197, 94, 0.95)); }
+            100% { filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.6)); }
+        }
+
+        .train-node.flash-green .train-boundary-box {
+            stroke: #22c55e !important;
+            stroke-width: 3px !important;
+            animation: nodeFlashGreen 0.8s ease-out;
+        }
+
         /* Map Legend */
         .map-legend {
             position: absolute;
@@ -215,8 +300,10 @@
             backdrop-filter: blur(6px);
             border: 1px solid var(--border-subtle);
             border-radius: var(--radius-sm);
-            padding: 0.4rem 0.8rem;
+            padding: 0.4rem 0.85rem;
             display: flex;
+            align-items: center;
+            flex-wrap: wrap;
             gap: 1rem;
             font-size: 0.75rem;
             font-family: var(--font-mono);
@@ -271,7 +358,7 @@
         <header class="page-header">
             <h1 class="page-title">Real-Time Station Dispatcher &amp; Platform Animation</h1>
             <p class="page-desc">
-                Interactive 2D animated track visualizer for Payanam Junction. Demonstrates incoming train arrival into the staging yard, smooth transition berthing into assigned platforms (PF-1 300m, PF-2 400m, PF-3 500m), waitlist holding with dashed amber warning styling, and departures off the mainline.
+                Interactive 2D animated track and timeline visualizer for Payanam Junction. Switch between <strong>Auto-play demo</strong> to watch the scheduled dispatcher sequence, and <strong>Timeline manual placement mode</strong> to explore 24-hour platform occupancy, dwell durations, 5-minute clearance buffers, and physical length constraints by hand.
             </p>
         </header>
 
@@ -284,7 +371,7 @@
                         <span>▶</span> Auto-play demo
                     </button>
                     <button id="btnModeManual" class="btn-mode" onclick="switchMode('manual')">
-                        <span>✋</span> Manual placement mode
+                        <span>✋</span> Timeline manual placement
                     </button>
                 </div>
 
@@ -320,14 +407,14 @@
                     <span class="sim-clock-time" id="clockReadout">06:00</span>
                 </div>
 
-                <!-- Step Counter Pill -->
+                <!-- Step Counter Pill (Auto mode) -->
                 <div class="sim-status-pill" id="stepCounterPill">
                     Step: 0 / 17
                 </div>
 
                 <!-- Manual Mode Pill -->
                 <div class="sim-status-pill" id="manualModePill" style="display: none; color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);">
-                    Interactive Dispatcher
+                    24h Interactive Timeline (00:00–24:00)
                 </div>
             </div>
         </section>
@@ -337,13 +424,18 @@
             Auto-play demo ready. Click &ldquo;Play&rdquo; to begin station dispatcher simulation.
         </div>
 
-        <!-- SVG Track Map Display (1200x500 viewBox) -->
+        <!-- SVG Track Map Display (1420x520 viewBox) -->
         <section class="track-map-wrapper">
-            <svg id="stationSvg" class="track-svg-element" viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+            <svg id="stationSvg" class="track-svg-element" viewBox="0 0 1420 520" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <!-- Background Grid Pattern -->
                     <pattern id="gridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
                         <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="1"/>
+                    </pattern>
+
+                    <!-- 5-Minute Clearance Buffer Hatched Pattern -->
+                    <pattern id="bufferHatch" width="6" height="6" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+                        <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(255,255,255,0.4)" stroke-width="2" />
                     </pattern>
 
                     <!-- Platform Drop Shadow -->
@@ -353,111 +445,96 @@
                 </defs>
 
                 <!-- Subtle Background Grid -->
-                <rect width="1200" height="500" fill="#080b12" />
-                <rect width="1200" height="500" fill="url(#gridPattern)" />
+                <rect width="1420" height="520" fill="#080b12" />
+                <rect width="1420" height="520" fill="url(#gridPattern)" />
 
                 <!-- Left Departure Throat Graphic (&larr; Westbound Mainline) -->
-                <g id="westboundThroat" opacity="0.7">
-                    <line x1="20" y1="110" x2="80" y2="110" stroke="#475569" stroke-width="3" stroke-dasharray="6 3" />
-                    <line x1="20" y1="230" x2="80" y2="230" stroke="#475569" stroke-width="3" stroke-dasharray="6 3" />
-                    <line x1="20" y1="350" x2="80" y2="350" stroke="#475569" stroke-width="3" stroke-dasharray="6 3" />
-                    <polygon points="15,110 28,104 28,116" fill="#38bdf8" />
-                    <polygon points="15,230 28,224 28,236" fill="#38bdf8" />
-                    <polygon points="15,350 28,344 28,356" fill="#38bdf8" />
-                    <text x="25" y="440" fill="#64748b" font-family="monospace" font-size="11" font-weight="bold">
-                        &larr; MAINLINE DEPARTURES (WEST)
+                <g id="westboundThroat" opacity="0.75">
+                    <line x1="15" y1="112" x2="75" y2="112" stroke="#475569" stroke-width="3" stroke-dasharray="6 3" />
+                    <line x1="15" y1="212" x2="75" y2="212" stroke="#475569" stroke-width="3" stroke-dasharray="6 3" />
+                    <line x1="15" y1="312" x2="75" y2="312" stroke="#475569" stroke-width="3" stroke-dasharray="6 3" />
+                    <polygon points="12,112 24,106 24,118" fill="#38bdf8" />
+                    <polygon points="12,212 24,206 24,218" fill="#38bdf8" />
+                    <polygon points="12,312 24,306 24,318" fill="#38bdf8" />
+                    <text x="18" y="420" fill="#64748b" font-family="monospace" font-size="10" font-weight="bold">
+                        &larr; MAINLINE (WEST)
                     </text>
                 </g>
+
+                <!-- 24-HOUR HORIZONTAL TIME AXIS (00:00 to 24:00 over 1100px) -->
+                <g id="timeAxisGroup">
+                    <!-- Baseline across 1100px: X=80 to X=1180 -->
+                    <line x1="80" y1="52" x2="1180" y2="52" stroke="#334155" stroke-width="1.5" />
+                    <text x="75" y="48" fill="#64748b" font-family="monospace" font-size="9" text-anchor="end">TIME AXIS &rarr;</text>
+                    <!-- Hour ticks and labels populated dynamically or below -->
+                </g>
+
+                <!-- VERTICAL TIME GRID LINES (descending through the 3 lanes) -->
+                <g id="timeGridLayer"></g>
 
                 <!-- =========================================================================
-                     Platform Lanes (1, 2, 3)
+                     Platform Lanes (1, 2, 3) - 24-Hour Timeline Track Beds
                      ========================================================================= -->
 
-                <!-- PLATFORM 1 LANE (300m) -->
+                <!-- PLATFORM 1 LANE (MAX 300m) -->
                 <g id="lanePlatform1" class="platform-lane platform-drop-target" data-platform="PF-1">
-                    <!-- Steel rails -->
-                    <line x1="80" y1="106" x2="940" y2="106" stroke="#334155" stroke-width="2" />
-                    <line x1="80" y1="114" x2="940" y2="114" stroke="#334155" stroke-width="2" />
-                    <line x1="80" y1="110" x2="940" y2="110" stroke="#1e293b" stroke-width="8" stroke-dasharray="2 6" />
-
-                    <!-- Concrete Platform Berth -->
-                    <rect x="220" y="65" width="560" height="32" rx="6" fill="#131c2e" stroke="#38bdf8" stroke-width="1.5" filter="url(#platformShadow)" />
-                    <!-- Platform Accent stripe -->
-                    <rect x="220" y="93" width="560" height="4" rx="1" fill="#38bdf8" opacity="0.8" />
-                    <!-- Label -->
-                    <text x="235" y="85" fill="#38bdf8" font-family="monospace" font-size="12" font-weight="bold" letter-spacing="0.05em">
-                        PLATFORM 1 &bull; MAX 300m
-                    </text>
-                    <text x="765" y="85" fill="#94a3b8" font-family="monospace" font-size="11" text-anchor="end">
-                        PF-1 BERTH
-                    </text>
-
-                    <!-- Buffer / Signal light -->
-                    <circle cx="95" cy="110" r="5" fill="#22c55e" />
+                    <rect x="80" y="80" width="1100" height="64" rx="8" fill="#0d1424" stroke="#1e293b" stroke-width="1.5" />
+                    <line x1="80" y1="106" x2="1180" y2="106" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="118" x2="1180" y2="118" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="112" x2="1180" y2="112" stroke="#1e293b" stroke-width="6" stroke-dasharray="2 6" />
+                    <text x="72" y="106" fill="#38bdf8" font-family="monospace" font-size="12" font-weight="bold" text-anchor="end">PF-1</text>
+                    <text x="72" y="122" fill="#64748b" font-family="monospace" font-size="9" text-anchor="end">300m</text>
+                    <circle cx="90" cy="112" r="4" fill="#22c55e" />
                 </g>
 
-                <!-- PLATFORM 2 LANE (400m) -->
+                <!-- PLATFORM 2 LANE (MAX 400m) -->
                 <g id="lanePlatform2" class="platform-lane platform-drop-target" data-platform="PF-2">
-                    <!-- Steel rails -->
-                    <line x1="80" y1="226" x2="940" y2="226" stroke="#334155" stroke-width="2" />
-                    <line x1="80" y1="234" x2="940" y2="234" stroke="#334155" stroke-width="2" />
-                    <line x1="80" y1="230" x2="940" y2="230" stroke="#1e293b" stroke-width="8" stroke-dasharray="2 6" />
-
-                    <!-- Concrete Platform Berth -->
-                    <rect x="180" y="185" width="640" height="32" rx="6" fill="#131c2e" stroke="#34d399" stroke-width="1.5" filter="url(#platformShadow)" />
-                    <rect x="180" y="213" width="640" height="4" rx="1" fill="#34d399" opacity="0.8" />
-                    <text x="195" y="205" fill="#34d399" font-family="monospace" font-size="12" font-weight="bold" letter-spacing="0.05em">
-                        PLATFORM 2 &bull; MAX 400m
-                    </text>
-                    <text x="805" y="205" fill="#94a3b8" font-family="monospace" font-size="11" text-anchor="end">
-                        PF-2 BERTH
-                    </text>
-
-                    <circle cx="95" cy="230" r="5" fill="#22c55e" />
+                    <rect x="80" y="180" width="1100" height="64" rx="8" fill="#0d1424" stroke="#1e293b" stroke-width="1.5" />
+                    <line x1="80" y1="206" x2="1180" y2="206" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="218" x2="1180" y2="218" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="212" x2="1180" y2="212" stroke="#1e293b" stroke-width="6" stroke-dasharray="2 6" />
+                    <text x="72" y="206" fill="#34d399" font-family="monospace" font-size="12" font-weight="bold" text-anchor="end">PF-2</text>
+                    <text x="72" y="222" fill="#64748b" font-family="monospace" font-size="9" text-anchor="end">400m</text>
+                    <circle cx="90" cy="212" r="4" fill="#22c55e" />
                 </g>
 
-                <!-- PLATFORM 3 LANE (500m) -->
+                <!-- PLATFORM 3 LANE (MAX 500m) -->
                 <g id="lanePlatform3" class="platform-lane platform-drop-target" data-platform="PF-3">
-                    <!-- Steel rails -->
-                    <line x1="80" y1="346" x2="940" y2="346" stroke="#334155" stroke-width="2" />
-                    <line x1="80" y1="354" x2="940" y2="354" stroke="#334155" stroke-width="2" />
-                    <line x1="80" y1="350" x2="940" y2="350" stroke="#1e293b" stroke-width="8" stroke-dasharray="2 6" />
-
-                    <!-- Concrete Platform Berth -->
-                    <rect x="130" y="305" width="740" height="32" rx="6" fill="#131c2e" stroke="#fbbf24" stroke-width="1.5" filter="url(#platformShadow)" />
-                    <rect x="130" y="333" width="740" height="4" rx="1" fill="#fbbf24" opacity="0.8" />
-                    <text x="145" y="325" fill="#fbbf24" font-family="monospace" font-size="12" font-weight="bold" letter-spacing="0.05em">
-                        PLATFORM 3 &bull; MAX 500m (ALL TRAINS)
-                    </text>
-                    <text x="855" y="325" fill="#94a3b8" font-family="monospace" font-size="11" text-anchor="end">
-                        PF-3 BERTH
-                    </text>
-
-                    <circle cx="95" cy="350" r="5" fill="#22c55e" />
+                    <rect x="80" y="280" width="1100" height="64" rx="8" fill="#0d1424" stroke="#1e293b" stroke-width="1.5" />
+                    <line x1="80" y1="306" x2="1180" y2="306" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="318" x2="1180" y2="318" stroke="#334155" stroke-width="2" />
+                    <line x1="80" y1="312" x2="1180" y2="312" stroke="#1e293b" stroke-width="6" stroke-dasharray="2 6" />
+                    <text x="72" y="306" fill="#fbbf24" font-family="monospace" font-size="12" font-weight="bold" text-anchor="end">PF-3</text>
+                    <text x="72" y="322" fill="#64748b" font-family="monospace" font-size="9" text-anchor="end">500m</text>
+                    <circle cx="90" cy="312" r="4" fill="#22c55e" />
                 </g>
 
-                <!-- Switch Interlocks & Connecting Turnouts -->
-                <path d="M 850 110 Q 920 170 940 230" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="4 4" />
-                <path d="M 850 350 Q 920 290 940 230" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="4 4" />
+                <!-- Connecting Turnouts & Switch Tracks -->
+                <path d="M 1120 112 Q 1160 160 1180 212" fill="none" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 4" />
+                <path d="M 1120 312 Q 1160 264 1180 212" fill="none" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 4" />
 
                 <!-- =========================================================================
                      Staging Area (Right Edge)
                      ========================================================================= -->
                 <g id="stagingYard">
-                    <!-- Shaded Staging Box -->
-                    <rect x="960" y="45" width="220" height="425" rx="10" fill="#0d1424" stroke="#26354f" stroke-width="1.5" stroke-dasharray="6 4" />
-                    <!-- Header -->
-                    <rect x="960" y="45" width="220" height="30" rx="10" fill="#182234" />
-                    <text x="1070" y="65" fill="#f8fafc" font-family="monospace" font-size="11" font-weight="bold" text-anchor="middle" letter-spacing="0.06em">
-                        STAGING &amp; QUEUE YARD
+                    <rect x="1205" y="45" width="195" height="430" rx="10" fill="#0d1424" stroke="#26354f" stroke-width="1.5" stroke-dasharray="6 4" />
+                    <rect x="1205" y="45" width="195" height="28" rx="10" fill="#182234" />
+                    <text x="1302" y="64" fill="#f8fafc" font-family="monospace" font-size="11" font-weight="bold" text-anchor="middle" letter-spacing="0.05em">
+                        STAGING YARD (HOLDING)
                     </text>
-                    <text x="1070" y="455" fill="#64748b" font-family="monospace" font-size="10" text-anchor="middle">
-                        INCOMING &rarr; HOLDING SIDING
-                    </text>
+                    <!-- 6 Staging Bay Outlines -->
+                    <rect x="1215" y="75" width="175" height="52" rx="6" fill="#080c14" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" />
+                    <rect x="1215" y="135" width="175" height="52" rx="6" fill="#080c14" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" />
+                    <rect x="1215" y="195" width="175" height="52" rx="6" fill="#080c14" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" />
+                    <rect x="1215" y="255" width="175" height="52" rx="6" fill="#080c14" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" />
+                    <rect x="1215" y="315" width="175" height="52" rx="6" fill="#080c14" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" />
+                    <rect x="1215" y="375" width="175" height="52" rx="6" fill="#080c14" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" />
                 </g>
 
-                <!-- Container Layer where Dynamic Animated Train Nodes Live -->
-                <g id="trainsLayer"></g>
+                <!-- DYNAMIC LAYERS -->
+                <g id="autoTrainsLayer"></g>
+                <g id="manualTrainsLayer"></g>
+                <g id="dragGuidelineLayer" style="pointer-events: none;"></g>
             </svg>
 
             <!-- Map Priority Legend -->
@@ -474,6 +551,13 @@
                 <div class="legend-item">
                     <span class="legend-color scheduled"></span>
                     <span style="color: #60a5fa;">SCHEDULED</span>
+                </div>
+                <div class="legend-item" style="margin-left: 0.5rem; border-left: 1px solid #334155; padding-left: 0.8rem;">
+                    <span style="display:inline-block; width:14px; height:10px; background: repeating-linear-gradient(45deg, #475569, #475569 2px, rgba(255,255,255,0.4) 2px, rgba(255,255,255,0.4) 4px); border-radius:2px;"></span>
+                    <span style="color: #94a3b8;">+5m BUFFER</span>
+                </div>
+                <div class="legend-item" style="margin-left: 0.5rem;">
+                    <span style="color: #38bdf8; font-size: 0.72rem;">Timeline: 00:00–24:00 (1m ≈ 0.76px, 5m snap)</span>
                 </div>
             </div>
         </section>
@@ -492,8 +576,31 @@
     <script src="sim.js"></script>
     <script>
         /**
-         * Automated Simulation Event Sequence
+         * Timeline & Layout Geometry Constants
          */
+        const X_START = 80;
+        const TIMELINE_WIDTH = 1100;
+        const X_END = X_START + TIMELINE_WIDTH; // 1180
+        const TOTAL_MINUTES = 1440; // 24 hours (00:00 to 24:00)
+        const pixelsPerMinute = TIMELINE_WIDTH / TOTAL_MINUTES; // ~0.7638888888888889 px/min
+        const BUFFER_MINUTES = 5;
+
+        const PLATFORM_LANES = {
+            "PF-1": { y: 90, height: 44, length: 300, num: "1", color: "#38bdf8" },
+            "PF-2": { y: 190, height: 44, length: 400, num: "2", color: "#34d399" },
+            "PF-3": { y: 290, height: 44, length: 500, num: "3", color: "#fbbf24" }
+        };
+
+        const STAGING_X = 1215;
+        const STAGING_Y_START = 75;
+        const STAGING_Y_GAP = 60;
+        const STAGING_WIDTH = 175;
+        const STAGING_HEIGHT = 48;
+
+        // Current operational mode: "auto" | "manual"
+        let currentMode = "auto";
+
+        // Auto Simulation Runtime State
         const mockEventSequence = [
             { trainId: "T001", action: "arrive", timestamp: "06:00" },
             { trainId: "T001", action: "assign", platformId: "PF-2", timestamp: "06:05" },
@@ -514,21 +621,12 @@
             { trainId: "T002", action: "assign", platformId: "PF-2", timestamp: "07:35" }
         ];
 
-        // Coordinate geometry for platforms and staging slots
-        const PLATFORM_COORDS = {
-            "PF-1": { x: 380, y: 95 },
-            "PF-2": { x: 380, y: 215 },
-            "PF-3": { x: 380, y: 335 }
+        const PLATFORM_COORDS_AUTO = {
+            "PF-1": { x: 420, y: 90 },
+            "PF-2": { x: 420, y: 190 },
+            "PF-3": { x: 420, y: 290 }
         };
 
-        const STAGING_X = 975;
-        const STAGING_Y_START = 85;
-        const STAGING_Y_GAP = 58;
-
-        // Current operational mode: "auto" | "manual"
-        let currentMode = "auto";
-
-        // Auto Simulation Runtime State
         let currentStepIndex = 0;
         let isPlaying = false;
         let playbackTimer = null;
@@ -542,9 +640,10 @@
         const manualStagingOccupancy = [null, null, null, null, null, null];
 
         document.addEventListener("DOMContentLoaded", () => {
+            renderTimeAxisAndGrid();
             showStatusBanner("Auto-play demo ready. Click &ldquo;Play&rdquo; to begin station dispatcher simulation.", "info");
 
-            // Handle Nav Reset button
+            // Handle Reset System button in navbar
             const resetBtn = document.getElementById("btnResetState");
             if (resetBtn) {
                 resetBtn.addEventListener("click", () => {
@@ -553,7 +652,7 @@
                         if (currentMode === "auto") {
                             resetAnimation();
                         } else {
-                            initManualMode();
+                            initTimelineManualMode();
                         }
                     }
                 });
@@ -568,7 +667,63 @@
         }
 
         /**
-         * Switches between "auto" simulation and "manual" drag & drop
+         * Renders the 24-hour hour ticks and vertical gridlines across all platforms
+         */
+        function renderTimeAxisAndGrid() {
+            const axisGroup = document.getElementById("timeAxisGroup");
+            const gridLayer = document.getElementById("timeGridLayer");
+            if (!axisGroup || !gridLayer) return;
+
+            // Clear previous dynamically created ticks
+            axisGroup.querySelectorAll(".dyn-tick").forEach(el => el.remove());
+            gridLayer.innerHTML = "";
+
+            for (let h = 0; h <= 24; h++) {
+                const totalMins = h * 60;
+                const x = X_START + (totalMins * pixelsPerMinute);
+                const isEven = (h % 2 === 0);
+
+                // Tick mark on baseline
+                const tickLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                tickLine.setAttribute("class", "dyn-tick");
+                tickLine.setAttribute("x1", x);
+                tickLine.setAttribute("y1", isEven ? "46" : "49");
+                tickLine.setAttribute("x2", x);
+                tickLine.setAttribute("y2", "52");
+                tickLine.setAttribute("stroke", isEven ? "#64748b" : "#475569");
+                tickLine.setAttribute("stroke-width", isEven ? "1.5" : "1");
+                axisGroup.appendChild(tickLine);
+
+                // Hour label (every 2 hours)
+                if (isEven) {
+                    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    label.setAttribute("class", "dyn-tick");
+                    label.setAttribute("x", x);
+                    label.setAttribute("y", "42");
+                    label.setAttribute("fill", "#94a3b8");
+                    label.setAttribute("font-family", "monospace");
+                    label.setAttribute("font-size", "10");
+                    label.setAttribute("font-weight", "600");
+                    label.setAttribute("text-anchor", "middle");
+                    label.textContent = `${String(h).padStart(2, "0")}:00`;
+                    axisGroup.appendChild(label);
+                }
+
+                // Vertical gridline descending down through all 3 platform tracks
+                const gridLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                gridLine.setAttribute("x1", x);
+                gridLine.setAttribute("y1", "54");
+                gridLine.setAttribute("x2", x);
+                gridLine.setAttribute("y2", "350");
+                gridLine.setAttribute("stroke", isEven ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)");
+                gridLine.setAttribute("stroke-width", isEven ? "1" : "0.75");
+                if (!isEven) gridLine.setAttribute("stroke-dasharray", "2 4");
+                gridLayer.appendChild(gridLine);
+            }
+        }
+
+        /**
+         * Switches between "auto" simulation and timeline "manual" mode
          */
         function switchMode(mode) {
             if (mode === currentMode) return;
@@ -581,6 +736,8 @@
             const autoClock = document.getElementById("autoClockCard");
             const autoPill = document.getElementById("stepCounterPill");
             const manualPill = document.getElementById("manualModePill");
+            const autoLayer = document.getElementById("autoTrainsLayer");
+            const manualLayer = document.getElementById("manualTrainsLayer");
 
             if (mode === "auto") {
                 btnAuto.classList.add("active");
@@ -590,6 +747,9 @@
                 autoClock.style.display = "flex";
                 autoPill.style.display = "block";
                 manualPill.style.display = "none";
+
+                if (manualLayer) manualLayer.style.display = "none";
+                if (autoLayer) autoLayer.style.display = "inline";
 
                 resetAnimation();
                 showStatusBanner("Auto-play demo active. Click &ldquo;Play&rdquo; to run automated station dispatcher.", "info");
@@ -606,13 +766,16 @@
                 isPlaying = false;
                 updatePlayButtonUI();
 
-                initManualMode();
-                showStatusBanner("Manual Mode: Drag trains from Staging Yard onto Platforms (PF-1 300m, PF-2 400m, PF-3 500m). Constraints and 5-min clearance buffers are strictly enforced.", "info");
+                if (autoLayer) autoLayer.style.display = "none";
+                if (manualLayer) manualLayer.style.display = "inline";
+
+                initTimelineManualMode();
+                showStatusBanner("Timeline Manual Mode: Drag trains onto Platforms (PF-1 300m, PF-2 400m, PF-3 500m). Width represents dwell + 5m buffer. Overlaps turn red in real-time.", "info");
             }
         }
 
         // =========================================================================
-        // MANUAL DRAG & DROP ENGINE
+        // TIMELINE MANUAL DRAG & DROP ENGINE
         // =========================================================================
 
         function getSvgCoordinates(evt, svgElement) {
@@ -624,21 +787,21 @@
             return pt.matrixTransform(ctm.inverse());
         }
 
-        function detectDropTarget(svgX, svgY) {
-            // Staging Yard bounds
-            if (svgX >= 930 && svgX <= 1200 && svgY >= 40 && svgY <= 480) {
+        function detectPlatformLane(svgX, svgY) {
+            // Staging Yard
+            if (svgX >= 1185 || (svgX >= 1170 && svgY >= 40 && svgY <= 480)) {
                 return { type: "staging" };
             }
-            // Platform 1 (PF-1) bounds: Lane Y ~110, platform 300m
-            if (svgY >= 50 && svgY <= 150 && svgX >= 80 && svgX <= 940) {
+            // Platform 1 (PF-1) bounds: lane Y 80–144 (center 112)
+            if (svgY >= 65 && svgY < 160 && svgX >= 60 && svgX <= 1185) {
                 return { type: "platform", platformId: "PF-1" };
             }
-            // Platform 2 (PF-2) bounds: Lane Y ~230, platform 400m
-            if (svgY >= 170 && svgY <= 270 && svgX >= 80 && svgX <= 940) {
+            // Platform 2 (PF-2) bounds: lane Y 180–244 (center 212)
+            if (svgY >= 160 && svgY < 260 && svgX >= 60 && svgX <= 1185) {
                 return { type: "platform", platformId: "PF-2" };
             }
-            // Platform 3 (PF-3) bounds: Lane Y ~350, platform 500m
-            if (svgY >= 290 && svgY <= 390 && svgX >= 80 && svgX <= 940) {
+            // Platform 3 (PF-3) bounds: lane Y 280–344 (center 312)
+            if (svgY >= 260 && svgY <= 360 && svgX >= 60 && svgX <= 1185) {
                 return { type: "platform", platformId: "PF-3" };
             }
             return null;
@@ -651,17 +814,27 @@
                 lane.classList.add("flash-red");
                 setTimeout(() => {
                     lane.classList.remove("flash-red");
-                }, 1200);
+                }, 1000);
             }
         }
 
-        function initManualMode() {
-            const layer = document.getElementById("trainsLayer");
+        function flashGreen(trainNode) {
+            trainNode.classList.add("flash-green");
+            setTimeout(() => {
+                trainNode.classList.remove("flash-green");
+            }, 800);
+        }
+
+        /**
+         * Initializes Manual Mode with all 6 trains unassigned in Staging Yard
+         */
+        function initTimelineManualMode() {
+            const layer = document.getElementById("manualTrainsLayer");
             if (layer) layer.innerHTML = "";
             manualTrainNodes.clear();
             for (let i = 0; i < 6; i++) manualStagingOccupancy[i] = null;
 
-            // Clear platform occupied intervals in simulation state
+            // Clear platform occupied intervals in simulation state for clean manual dispatching
             window.railwaySystem.platforms.forEach(pf => {
                 pf.occupiedIntervals = [];
             });
@@ -673,45 +846,115 @@
 
                 const startY = STAGING_Y_START + idx * STAGING_Y_GAP;
                 const startX = STAGING_X;
-                const priorityClass = train.priority.toLowerCase();
 
                 const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
                 g.id = `manual_train_${train.id}`;
-                g.setAttribute("class", `train-node ${priorityClass} manual-draggable`);
-                g.style.transform = `translate(${startX}px, ${startY}px)`;
+                g.setAttribute("class", `train-node ${train.priority.toLowerCase()} manual-draggable`);
+                g.style.transform = `translate3d(${startX}px, ${startY}px, 0)`;
                 g.style.opacity = "1";
-                g.style.cursor = "grab";
 
-                g.innerHTML = `
-                    <rect width="190" height="38" rx="7" />
-                    <path d="M 12 10 L 4 19 L 12 28 Z" fill="#ffffff" opacity="0.6"/>
-                    <text x="20" y="24" fill="#ffffff" font-family="monospace" font-size="12" font-weight="bold">
-                        ${train.id}
-                    </text>
-                    <text x="60" y="24" fill="#ffffff" font-family="sans-serif" font-size="11" font-weight="600">
-                        ${escapeXml(truncate(train.name, 10))} (${train.length}m)
-                    </text>
-                    <text class="status-indicator-tag" x="182" y="24" fill="#ffffff" font-family="monospace" font-size="9" text-anchor="end" opacity="0.85">
-                        ${train.priority.slice(0, 3)}
-                    </text>
-                `;
+                updateTrainNodeAppearance(g, train, "staging");
 
                 layer.appendChild(g);
-                manualTrainNodes.set(train.id, { element: g, stagingSlot: idx, currentPlatform: null });
+                manualTrainNodes.set(train.id, {
+                    element: g,
+                    stagingSlot: idx,
+                    currentPlatform: null,
+                    lastValid: null
+                });
 
-                setupTrainDragging(g, train.id);
+                setupTimelineDragging(g, train.id);
             });
         }
 
         function resetManualPlacements() {
-            initManualMode();
+            initTimelineManualMode();
             showStatusBanner("All platforms cleared. All 6 trains reset to Staging Yard.", "info");
         }
 
-        function setupTrainDragging(trainNode, trainId) {
+        /**
+         * Updates a train's SVG appearance between 'staging' card and 'timeline' duration block
+         */
+        function updateTrainNodeAppearance(trainNode, train, styleMode, customWidth) {
+            const priorityClass = train.priority.toLowerCase();
+            const priorityFill = priorityClass === "emergency" ? "#dc2626" : priorityClass === "connecting" ? "#d97706" : "#2563eb";
+            const priorityStroke = priorityClass === "emergency" ? "#f87171" : priorityClass === "connecting" ? "#fbbf24" : "#60a5fa";
+
+            const arrMin = window.parseTimeToMinutes(train.arrival);
+            const depMin = window.parseTimeToMinutes(train.departure);
+            let durationWithoutBuffer = depMin - arrMin;
+            if (durationWithoutBuffer <= 0) durationWithoutBuffer = 20;
+
+            if (styleMode === "staging") {
+                trainNode.innerHTML = `
+                    <rect class="train-boundary-box" width="${STAGING_WIDTH}" height="${STAGING_HEIGHT}" rx="7" fill="${priorityFill}" stroke="${priorityStroke}" stroke-width="1.5" />
+                    <path d="M 12 14 L 5 24 L 12 34 Z" fill="#ffffff" opacity="0.6"/>
+                    <text x="18" y="24" fill="#ffffff" font-family="monospace" font-size="12" font-weight="bold">
+                        ${train.id}
+                    </text>
+                    <text x="56" y="24" fill="#ffffff" font-family="sans-serif" font-size="11" font-weight="600">
+                        ${escapeXml(truncate(train.name, 12))}
+                    </text>
+                    <text x="18" y="40" fill="rgba(255,255,255,0.85)" font-family="monospace" font-size="9">
+                        ${train.arrival}–${train.departure} (${durationWithoutBuffer}m)
+                    </text>
+                    <text x="${STAGING_WIDTH - 10}" y="40" fill="#ffffff" font-family="monospace" font-size="9" font-weight="bold" text-anchor="end">
+                        ${train.length}m
+                    </text>
+                `;
+            } else {
+                // 'timeline' representation: width represents dwell duration + 5m buffer
+                const totalMinsWithBuffer = durationWithoutBuffer + BUFFER_MINUTES;
+                const totalWidth = customWidth !== undefined ? customWidth : (totalMinsWithBuffer * pixelsPerMinute);
+                const dwellWidth = Math.max(2, durationWithoutBuffer * pixelsPerMinute);
+                const bufferWidth = Math.max(2, BUFFER_MINUTES * pixelsPerMinute);
+
+                const hitWidth = Math.max(totalWidth, 38);
+                const pillWidth = Math.max(totalWidth, 44);
+
+                trainNode.innerHTML = `
+                    <!-- Invisible large hit area for effortless grabbing -->
+                    <rect x="0" y="-14" width="${hitWidth}" height="64" fill="transparent" cursor="grab" />
+
+                    <!-- Dwell Duration Body (Solid Priority Color) -->
+                    <rect class="train-dwell-rect" x="0" y="0" width="${dwellWidth}" height="44" rx="4" fill="${priorityFill}" />
+
+                    <!-- 5-Minute Clearance Buffer (Striped Hatched Pattern) -->
+                    <rect class="train-buffer-rect" x="${dwellWidth}" y="0" width="${bufferWidth}" height="44" rx="4" fill="url(#bufferHatch)" stroke="rgba(255,255,255,0.4)" stroke-width="1" />
+
+                    <!-- Outer Boundary Box (Changes color live during drag) -->
+                    <rect class="train-boundary-box" x="0" y="0" width="${totalWidth}" height="44" rx="4" fill="none" stroke="${priorityStroke}" stroke-width="1.5" />
+
+                    <!-- Top ID & Arrival Tag / Pill -->
+                    <g class="train-top-pill" transform="translate(0, -14)">
+                        <rect x="0" y="0" width="${pillWidth}" height="14" rx="3" fill="#0b0f19" stroke="${priorityStroke}" stroke-width="1" />
+                        <text x="${pillWidth / 2}" y="10" fill="#f8fafc" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle">
+                            ${train.id} ${train.arrival}
+                        </text>
+                    </g>
+
+                    <!-- Train ID centered on dwell block if wide enough -->
+                    ${dwellWidth >= 26 ? `
+                        <text x="${dwellWidth / 2}" y="26" fill="#ffffff" font-family="monospace" font-size="10" font-weight="bold" text-anchor="middle">
+                            ${train.id}
+                        </text>
+                    ` : ''}
+
+                    <title>${train.id} ${train.name} | ${train.arrival}–${train.departure} (+5m buffer) | ${train.length}m</title>
+                `;
+            }
+        }
+
+        /**
+         * Timeline Drag & Drop Controller
+         * Uses pointerdown/pointermove/pointerup and translate3d for smooth 60fps interaction
+         */
+        function setupTimelineDragging(trainNode, trainId) {
             let isDragging = false;
             let startPointer = { x: 0, y: 0 };
             let origTranslate = { x: 0, y: 0 };
+            const svg = document.getElementById("stationSvg");
+            const guidelineLayer = document.getElementById("dragGuidelineLayer");
 
             trainNode.addEventListener("pointerdown", function(e) {
                 if (currentMode !== "manual") return;
@@ -721,88 +964,185 @@
                 isDragging = true;
                 trainNode.setPointerCapture(e.pointerId);
 
-                const match = trainNode.style.transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
-                if (match) {
-                    origTranslate.x = parseFloat(match[1]);
-                    origTranslate.y = parseFloat(match[2]);
+                // Parse current translate3d or translate coordinates
+                const match3d = trainNode.style.transform.match(/translate3d\(([-\d.]+)px,\s*([-\d.]+)px/);
+                const match2d = trainNode.style.transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px/);
+                if (match3d) {
+                    origTranslate.x = parseFloat(match3d[1]);
+                    origTranslate.y = parseFloat(match3d[2]);
+                } else if (match2d) {
+                    origTranslate.x = parseFloat(match2d[1]);
+                    origTranslate.y = parseFloat(match2d[2]);
                 } else {
                     origTranslate.x = 0;
                     origTranslate.y = 0;
                 }
 
-                const svg = document.getElementById("stationSvg");
                 startPointer = getSvgCoordinates(e, svg);
 
                 trainNode.style.transition = "none";
-                trainNode.style.cursor = "grabbing";
-                // Bring active train to top of SVG layer
-                trainNode.parentElement.appendChild(trainNode);
+                trainNode.classList.add("is-dragging");
+                trainNode.parentElement.appendChild(trainNode); // Bring to top
             });
 
             trainNode.addEventListener("pointermove", function(e) {
                 if (!isDragging) return;
                 e.preventDefault();
 
-                const svg = document.getElementById("stationSvg");
                 const currPointer = getSvgCoordinates(e, svg);
                 const dx = currPointer.x - startPointer.x;
                 const dy = currPointer.y - startPointer.y;
 
-                trainNode.style.transform = `translate(${origTranslate.x + dx}px, ${origTranslate.y + dy}px)`;
+                const targetX = origTranslate.x + dx;
+                const targetY = origTranslate.y + dy;
+
+                // 60fps hardware accelerated movement
+                trainNode.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
+
+                // LIVE HOVER OVERLAP CHECK
+                const train = window.railwaySystem.trains.get(trainId);
+                if (!train) return;
+
+                const arrMin = window.parseTimeToMinutes(train.arrival);
+                const depMin = window.parseTimeToMinutes(train.departure);
+                const durationWithoutBuffer = (depMin - arrMin > 0) ? (depMin - arrMin) : 20;
+                const durationWithBuffer = durationWithoutBuffer + BUFFER_MINUTES;
+
+                const hoverTarget = detectPlatformLane(targetX, targetY + 22);
+
+                if (hoverTarget && hoverTarget.type === "platform") {
+                    const pfId = hoverTarget.platformId;
+                    const platform = window.railwaySystem.platforms.get(pfId);
+                    const pfNum = pfId.replace("PF-", "");
+
+                    // Switch appearance to timeline duration representation
+                    updateTrainNodeAppearance(trainNode, train, "timeline");
+
+                    // Compute live candidate arrival time (snapped to 5-min intervals)
+                    const hoverMinutes = Math.max(0, Math.min(TOTAL_MINUTES - durationWithBuffer, Math.round(((targetX - X_START) / pixelsPerMinute) / 5) * 5));
+                    const hoverArrStr = window.minutesToTime(hoverMinutes);
+                    const hoverDepStr = window.minutesToTime(hoverMinutes + durationWithoutBuffer);
+
+                    // Continuous live validation (excluding this train itself if already on this platform)
+                    const check = window.isPlatformFree(platform, hoverArrStr, hoverDepStr, BUFFER_MINUTES, train.length, trainId);
+
+                    const guidelineX = X_START + (hoverMinutes * pixelsPerMinute);
+
+                    if (check.ok) {
+                        trainNode.classList.remove("conflict-hover");
+                        trainNode.classList.add("valid-hover");
+
+                        // Live Green Guideline & Callout Badge
+                        guidelineLayer.innerHTML = `
+                            <line class="drag-time-guideline" x1="${guidelineX}" y1="52" x2="${guidelineX}" y2="350" stroke="#22c55e" />
+                            <g transform="translate(${Math.max(80, Math.min(1080, guidelineX))}, ${PLATFORM_LANES[pfId].y - 24})">
+                                <rect x="-55" y="0" width="110" height="20" rx="4" fill="rgba(15,23,42,0.95)" stroke="#22c55e" stroke-width="1.5" />
+                                <text x="0" y="14" fill="#22c55e" font-family="monospace" font-size="10" font-weight="bold" text-anchor="middle">
+                                    ${hoverArrStr}–${hoverDepStr} ✓
+                                </text>
+                            </g>
+                        `;
+
+                        showStatusBanner(`Hovering Platform ${pfNum}: Valid (${hoverArrStr}–${hoverDepStr} +5m buffer | Length: ${train.length}m &le; ${platform.length}m).`, "info");
+                    } else {
+                        trainNode.classList.remove("valid-hover");
+                        trainNode.classList.add("conflict-hover");
+
+                        // Live Red Guideline & Callout Badge
+                        guidelineLayer.innerHTML = `
+                            <line class="drag-time-guideline" x1="${guidelineX}" y1="52" x2="${guidelineX}" y2="350" stroke="#ef4444" />
+                            <g transform="translate(${Math.max(80, Math.min(1080, guidelineX))}, ${PLATFORM_LANES[pfId].y - 24})">
+                                <rect x="-65" y="0" width="130" height="20" rx="4" fill="rgba(15,23,42,0.95)" stroke="#ef4444" stroke-width="1.5" />
+                                <text x="0" y="14" fill="#ef4444" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle">
+                                    ⚠️ Conflict (${hoverArrStr}–${hoverDepStr})
+                                </text>
+                            </g>
+                        `;
+
+                        showStatusBanner(`⚠️ Platform ${pfNum} Conflict: ${check.reason}`, "error");
+                    }
+                } else if (hoverTarget && hoverTarget.type === "staging") {
+                    trainNode.classList.remove("valid-hover", "conflict-hover");
+                    guidelineLayer.innerHTML = "";
+                    updateTrainNodeAppearance(trainNode, train, "staging");
+                    showStatusBanner(`Release to return Train ${train.id} (${train.name}) to Staging Yard.`, "info");
+                } else {
+                    trainNode.classList.remove("valid-hover", "conflict-hover");
+                    guidelineLayer.innerHTML = "";
+                    showStatusBanner(`Drag to a Platform lane (PF-1 300m, PF-2 400m, PF-3 500m) or Staging Yard.`, "info");
+                }
             });
 
             const onPointerEnd = function(e) {
                 if (!isDragging) return;
                 isDragging = false;
                 try { trainNode.releasePointerCapture(e.pointerId); } catch (_) {}
-                trainNode.style.cursor = "grab";
+                trainNode.classList.remove("is-dragging", "valid-hover", "conflict-hover");
+                guidelineLayer.innerHTML = "";
 
-                const svg = document.getElementById("stationSvg");
                 const endPointer = getSvgCoordinates(e, svg);
-
                 handleManualDrop(trainId, trainNode, origTranslate, endPointer);
             };
 
             trainNode.addEventListener("pointerup", onPointerEnd);
-            trainNode.addEventListener("pointercancel", function(e) {
-                if (!isDragging) return;
-                isDragging = false;
-                try { trainNode.releasePointerCapture(e.pointerId); } catch (_) {}
-                trainNode.style.cursor = "grab";
-                trainNode.style.transition = "transform 0.4s ease";
-                trainNode.style.transform = `translate(${origTranslate.x}px, ${origTranslate.y}px)`;
-            });
+            trainNode.addEventListener("pointercancel", onPointerEnd);
         }
 
+        /**
+         * Commits placement with 5-minute grid snapping & validation or smooth return animation
+         */
         function handleManualDrop(trainId, trainNode, origTranslate, endPointer) {
-            const dropTarget = detectDropTarget(endPointer.x, endPointer.y);
+            const dropTarget = detectPlatformLane(endPointer.x, endPointer.y);
             const nodeInfo = manualTrainNodes.get(trainId);
             const train = window.railwaySystem.trains.get(trainId);
 
             if (!nodeInfo || !train) {
-                trainNode.style.transition = "transform 0.4s ease";
-                trainNode.style.transform = `translate(${origTranslate.x}px, ${origTranslate.y}px)`;
+                smoothSnapBack(trainNode, origTranslate.x, origTranslate.y);
                 return;
             }
+
+            const arrMin = window.parseTimeToMinutes(train.arrival);
+            const depMin = window.parseTimeToMinutes(train.departure);
+            const durationWithoutBuffer = (depMin - arrMin > 0) ? (depMin - arrMin) : 20;
+            const durationWithBuffer = durationWithoutBuffer + BUFFER_MINUTES;
 
             if (dropTarget && dropTarget.type === "platform") {
                 const pfId = dropTarget.platformId;
                 const platform = window.railwaySystem.platforms.get(pfId);
+                const pfNum = pfId.replace("PF-", "");
 
-                // Check constraints with real sim.js logic
-                const check = window.isPlatformFree(platform, train.arrival, train.departure, 5, train.length, trainId);
+                // Snap horizontal position to nearest 5-minute increment
+                const snapMinutes = Math.max(0, Math.min(TOTAL_MINUTES - durationWithBuffer, Math.round(((endPointer.x - X_START) / pixelsPerMinute) / 5) * 5));
+                const snappedX = X_START + (snapMinutes * pixelsPerMinute);
+                const snappedY = PLATFORM_LANES[pfId].y;
+
+                const candidateArrival = window.minutesToTime(snapMinutes);
+                const candidateDeparture = window.minutesToTime(snapMinutes + durationWithoutBuffer);
+
+                // Real overlap & physical length check (excluding this train itself if re-adjusting on same platform)
+                const check = window.isPlatformFree(platform, candidateArrival, candidateDeparture, BUFFER_MINUTES, train.length, trainId);
 
                 if (!check.ok) {
-                    // Rejection: Flash platform red, show error reason, snap back
+                    // REJECTION: Flash platform red, show specific reason, and smoothly animate back to last valid position
                     flashPlatformRed(pfId);
-                    showStatusBanner(check.reason, "error");
-                    trainNode.style.transition = "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)";
-                    trainNode.style.transform = `translate(${origTranslate.x}px, ${origTranslate.y}px)`;
+                    showStatusBanner(`❌ Placement Rejected: ${check.reason}`, "error");
+
+                    if (nodeInfo.lastValid) {
+                        smoothSnapBack(trainNode, nodeInfo.lastValid.x, nodeInfo.lastValid.y, () => {
+                            updateTrainNodeAppearance(trainNode, train, "timeline");
+                        });
+                    } else {
+                        // Return to staging yard
+                        const returnY = STAGING_Y_START + (nodeInfo.stagingSlot || 0) * STAGING_Y_GAP;
+                        smoothSnapBack(trainNode, STAGING_X, returnY, () => {
+                            updateTrainNodeAppearance(trainNode, train, "staging");
+                        });
+                    }
                     return;
                 }
 
-                // Accepted:
-                // If previously on another platform, remove its interval
+                // ACCEPTED:
+                // If previously on another platform, remove its old interval
                 if (nodeInfo.currentPlatform && nodeInfo.currentPlatform !== pfId) {
                     const oldPf = window.railwaySystem.platforms.get(nodeInfo.currentPlatform);
                     if (oldPf) {
@@ -816,29 +1156,41 @@
                     nodeInfo.stagingSlot = null;
                 }
 
-                // Add interval to target platform
+                // Commit interval to platform
                 platform.occupiedIntervals = platform.occupiedIntervals.filter(i => i.trainId !== trainId);
                 platform.occupiedIntervals.push({
-                    start: train.arrival,
-                    end: train.departure,
-                    arrival: train.arrival,
-                    departure: train.departure,
                     trainId: train.id,
-                    startMin: window.parseTimeToMinutes(train.arrival),
-                    endMin: window.parseTimeToMinutes(train.departure) + 5
+                    arrival: candidateArrival,
+                    departure: candidateDeparture,
+                    startMin: snapMinutes,
+                    endMin: snapMinutes + durationWithBuffer
                 });
 
-                // Snap onto platform with ~1s CSS transition
-                const targetCoords = PLATFORM_COORDS[pfId];
-                trainNode.style.transition = "transform 1s cubic-bezier(0.4, 0, 0.2, 1)";
-                trainNode.style.transform = `translate(${targetCoords.x}px, ${targetCoords.y}px)`;
+                // Update train's arrival and departure
+                train.arrival = candidateArrival;
+                train.departure = candidateDeparture;
 
+                // Update tracking state
                 nodeInfo.currentPlatform = pfId;
+                nodeInfo.lastValid = {
+                    x: snappedX,
+                    y: snappedY,
+                    platformId: pfId,
+                    arrival: candidateArrival,
+                    departure: candidateDeparture
+                };
 
-                const pfNum = pfId.replace("PF-", "");
-                showStatusBanner(`✔ Train ${train.id} (${train.name}) berthed at Platform ${pfNum} (${train.arrival}–${train.departure}, ${train.length}m). Clearance buffer and track length valid.`, "success");
+                // Render as timeline block
+                updateTrainNodeAppearance(trainNode, train, "timeline");
 
-                window.eventLog.push(`[MANUAL DISPATCH] Train ${train.id} assigned to Platform ${pfNum} (${train.arrival}–${train.departure})`);
+                // Smooth snap animation into 5-minute snapped slot
+                trainNode.style.transition = "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)";
+                trainNode.style.transform = `translate3d(${snappedX}px, ${snappedY}px, 0)`;
+
+                flashGreen(trainNode);
+
+                showStatusBanner(`✔ Train ${train.id} (${train.name}) berthed at Platform ${pfNum} (${candidateArrival}–${candidateDeparture}, ${train.length}m). Validated against timeline clearance.`, "success");
+                window.eventLog.push(`[TIMELINE DISPATCH] Train ${train.id} assigned to Platform ${pfNum} (${candidateArrival}–${candidateDeparture})`);
                 window.railwaySystem.saveToStorage();
 
             } else if (dropTarget && dropTarget.type === "staging") {
@@ -850,6 +1202,7 @@
                     }
                     const oldPfNum = nodeInfo.currentPlatform.replace("PF-", "");
                     nodeInfo.currentPlatform = null;
+                    nodeInfo.lastValid = null;
 
                     // Find first free staging slot
                     let freeSlot = manualStagingOccupancy.indexOf(null);
@@ -858,26 +1211,48 @@
                     nodeInfo.stagingSlot = freeSlot;
 
                     const targetY = STAGING_Y_START + freeSlot * STAGING_Y_GAP;
-                    trainNode.style.transition = "transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)";
-                    trainNode.style.transform = `translate(${STAGING_X}px, ${targetY}px)`;
+                    smoothSnapBack(trainNode, STAGING_X, targetY, () => {
+                        updateTrainNodeAppearance(trainNode, train, "staging");
+                    });
 
-                    showStatusBanner(`Train ${train.id} (${train.name}) unassigned from Platform ${oldPfNum} and returned to staging yard. Platform ${oldPfNum} is now free.`, "info");
-                    window.eventLog.push(`[MANUAL DISPATCH] Train ${train.id} unassigned from Platform ${oldPfNum}`);
+                    showStatusBanner(`Train ${train.id} (${train.name}) unassigned from Platform ${oldPfNum} and returned to Staging Yard.`, "info");
+                    window.eventLog.push(`[TIMELINE DISPATCH] Train ${train.id} unassigned from Platform ${oldPfNum}`);
                     window.railwaySystem.saveToStorage();
                 } else {
                     // Already in staging, snap back to slot
-                    trainNode.style.transition = "transform 0.4s ease";
-                    trainNode.style.transform = `translate(${origTranslate.x}px, ${origTranslate.y}px)`;
+                    const slotY = STAGING_Y_START + (nodeInfo.stagingSlot || 0) * STAGING_Y_GAP;
+                    smoothSnapBack(trainNode, STAGING_X, slotY, () => {
+                        updateTrainNodeAppearance(trainNode, train, "staging");
+                    });
                 }
             } else {
-                // Dropped out of bounds, snap back
-                trainNode.style.transition = "transform 0.4s ease";
-                trainNode.style.transform = `translate(${origTranslate.x}px, ${origTranslate.y}px)`;
+                // Dropped out of bounds: smoothly snap back to last valid position
+                if (nodeInfo.lastValid) {
+                    smoothSnapBack(trainNode, nodeInfo.lastValid.x, nodeInfo.lastValid.y, () => {
+                        updateTrainNodeAppearance(trainNode, train, "timeline");
+                    });
+                } else {
+                    const slotY = STAGING_Y_START + (nodeInfo.stagingSlot || 0) * STAGING_Y_GAP;
+                    smoothSnapBack(trainNode, STAGING_X, slotY, () => {
+                        updateTrainNodeAppearance(trainNode, train, "staging");
+                    });
+                }
+            }
+        }
+
+        /**
+         * Smooth CSS transition snap back helper (~0.4s ease-out)
+         */
+        function smoothSnapBack(trainNode, targetX, targetY, onComplete) {
+            trainNode.style.transition = "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)";
+            trainNode.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
+            if (onComplete) {
+                setTimeout(onComplete, 400);
             }
         }
 
         // =========================================================================
-        // AUTOMATED PLAYBACK ENGINE
+        // AUTOMATED PLAYBACK ENGINE (Preserved separate from manual mode)
         // =========================================================================
 
         function togglePlayPause() {
@@ -920,7 +1295,7 @@
             });
 
             const transitionDuration = (1.5 / currentSpeed).toFixed(2);
-            document.querySelectorAll(".train-node").forEach(node => {
+            document.querySelectorAll("#autoTrainsLayer .train-node").forEach(node => {
                 node.style.transition = `transform ${transitionDuration}s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease`;
             });
         }
@@ -934,7 +1309,7 @@
             autoTrainNodes.clear();
             for (let i = 0; i < autoStagingOccupancy.length; i++) autoStagingOccupancy[i] = null;
 
-            const layer = document.getElementById("trainsLayer");
+            const layer = document.getElementById("autoTrainsLayer");
             if (layer) layer.innerHTML = "";
 
             document.getElementById("clockReadout").textContent = "06:00";
@@ -979,7 +1354,7 @@
             const trainName = train ? train.name : trainId;
             const priority = train ? train.priority : "SCHEDULED";
             const priorityClass = priority.toLowerCase();
-            const layer = document.getElementById("trainsLayer");
+            const layer = document.getElementById("autoTrainsLayer");
 
             if (action === "arrive") {
                 let freeSlot = autoStagingOccupancy.indexOf(null);
@@ -990,23 +1365,23 @@
                 const startX = STAGING_X;
 
                 const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                g.id = `train_node_${trainId}`;
+                g.id = `auto_train_node_${trainId}`;
                 g.setAttribute("class", `train-node ${priorityClass}`);
                 const transDuration = (1.5 / currentSpeed).toFixed(2);
                 g.style.transition = `transform ${transDuration}s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease`;
                 g.style.opacity = "0";
-                g.style.transform = `translate(${startX}px, ${startY}px)`;
+                g.style.transform = `translate3d(${startX}px, ${startY}px, 0)`;
 
                 g.innerHTML = `
-                    <rect width="190" height="38" rx="7" />
-                    <path d="M 12 10 L 4 19 L 12 28 Z" fill="#ffffff" opacity="0.6"/>
-                    <text x="22" y="24" fill="#ffffff" font-family="monospace" font-size="12" font-weight="bold">
+                    <rect width="${STAGING_WIDTH}" height="${STAGING_HEIGHT}" rx="7" />
+                    <path d="M 12 14 L 5 24 L 12 34 Z" fill="#ffffff" opacity="0.6"/>
+                    <text x="18" y="24" fill="#ffffff" font-family="monospace" font-size="12" font-weight="bold">
                         ${trainId}
                     </text>
-                    <text x="65" y="24" fill="#ffffff" font-family="sans-serif" font-size="11" font-weight="500" opacity="0.95">
-                        ${escapeXml(truncate(trainName, 15))}
+                    <text x="56" y="24" fill="#ffffff" font-family="sans-serif" font-size="11" font-weight="500" opacity="0.95">
+                        ${escapeXml(truncate(trainName, 13))}
                     </text>
-                    <text class="status-indicator-tag" x="180" y="24" fill="#ffffff" font-family="monospace" font-size="10" text-anchor="end" opacity="0.8">
+                    <text class="status-indicator-tag" x="${STAGING_WIDTH - 10}" y="24" fill="#ffffff" font-family="monospace" font-size="10" text-anchor="end" opacity="0.8">
                         ${priority.slice(0, 3)}
                     </text>
                 `;
@@ -1034,10 +1409,10 @@
                 const tag = element.querySelector(".status-indicator-tag");
                 if (tag) tag.textContent = priority.slice(0, 3);
 
-                const target = PLATFORM_COORDS[platformId] || { x: 380, y: 215 };
+                const target = PLATFORM_COORDS_AUTO[platformId] || { x: 420, y: 190 };
                 const transDuration = (1.5 / currentSpeed).toFixed(2);
                 element.style.transition = `transform ${transDuration}s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease`;
-                element.style.transform = `translate(${target.x}px, ${target.y}px)`;
+                element.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`;
 
                 nodeInfo.currentPlatform = platformId;
 
@@ -1051,11 +1426,11 @@
                 if (!nodeInfo) return;
 
                 const { element, currentPlatform } = nodeInfo;
-                const platformY = PLATFORM_COORDS[currentPlatform] ? PLATFORM_COORDS[currentPlatform].y : 215;
+                const platformY = PLATFORM_COORDS_AUTO[currentPlatform] ? PLATFORM_COORDS_AUTO[currentPlatform].y : 190;
 
                 const transDuration = (1.5 / currentSpeed).toFixed(2);
                 element.style.transition = `transform ${transDuration}s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease`;
-                element.style.transform = `translate(-250px, ${platformY}px)`;
+                element.style.transform = `translate3d(-250px, ${platformY}px, 0)`;
                 element.style.opacity = "0";
 
                 setTimeout(() => {

@@ -25,6 +25,20 @@ function parseTimeToMinutes(timeStr) {
 }
 
 /**
+ * Utility: Converts minutes from midnight into HH:MM string
+ * e.g. 510 -> "08:30"
+ *
+ * @param {number} totalMinutes
+ * @returns {string} HH:MM format
+ */
+function minutesToTime(totalMinutes) {
+    if (isNaN(totalMinutes) || totalMinutes < 0) totalMinutes = 0;
+    const h = Math.floor(totalMinutes / 60) % 24;
+    const m = Math.floor(totalMinutes % 60);
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/**
  * Validates whether a platform can accommodate a train given its physical length
  * and time interval [arrivalTime, departureTime + bufferMinutes].
  *
@@ -47,10 +61,9 @@ function isPlatformFree(platform, arrivalTime, departureTime, bufferMinutes = 5,
 
     // 1. Length Check
     if (trainLength > platform.length) {
-        const trainLabel = candidateTrainId ? `Train ${candidateTrainId}` : "Train";
         return {
             ok: false,
-            reason: `Platform ${pfLabel} too short for ${trainLabel} (needs ${trainLength}m, platform is ${platform.length}m)`
+            reason: `Platform ${pfLabel} too short: needs ${trainLength}m, has ${platform.length}m`
         };
     }
 
@@ -70,10 +83,10 @@ function isPlatformFree(platform, arrivalTime, departureTime, bufferMinutes = 5,
 
             // Two intervals [A, B] and [C, D] overlap if A < D and C < B
             if (arrMin < invEnd && invStart < depMin) {
-                const trainLabel = candidateTrainId ? `Train ${candidateTrainId}` : "Train";
+                const trainLabel = inv.trainId ? `Train ${inv.trainId}` : "train";
                 return {
                     ok: false,
-                    reason: `Platform ${pfLabel} already occupied ${inv.arrival}–${inv.departure} — ${trainLabel} (${arrivalTime}–${departureTime}) overlaps.`
+                    reason: `Overlaps ${trainLabel}, ${inv.arrival}–${inv.departure}`
                 };
             }
         }
@@ -84,6 +97,7 @@ function isPlatformFree(platform, arrivalTime, departureTime, bufferMinutes = 5,
 
 // Attach to window so it is accessible globally
 window.parseTimeToMinutes = parseTimeToMinutes;
+window.minutesToTime = minutesToTime;
 window.isPlatformFree = isPlatformFree;
 
 /**
