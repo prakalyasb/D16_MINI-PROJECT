@@ -42,6 +42,28 @@
             </p>
         </header>
 
+        <!-- Quick Cancellation by Passenger ID -->
+        <section class="global-cancel-section" aria-label="Quick Cancellation">
+            <div class="global-cancel-card">
+                <div class="global-cancel-header">
+                    <span class="global-cancel-icon">🎫</span>
+                    <div>
+                        <h2>Quick Cancellation by Passenger ID</h2>
+                        <p class="global-cancel-desc">
+                            Enter any confirmed passenger's ID (e.g. <code>P001</code>, <code>P004</code>) to cancel their booking across any train service, or click on any booked seat below.
+                        </p>
+                    </div>
+                </div>
+                <div class="global-cancel-form">
+                    <input type="text" id="globalCancelInput" class="global-cancel-input" placeholder="Enter Passenger ID (e.g. P001)" autocomplete="off" />
+                    <button id="btnGlobalCancel" class="btn-action cancel btn-global-cancel" type="button">
+                        Cancel by Passenger ID
+                    </button>
+                </div>
+                <div id="globalCancelStatus" class="global-cancel-status"></div>
+            </div>
+        </section>
+
         <!-- 6 Train Cards with Seat Grids -->
         <section class="train-cards-container" id="reservationCardsContainer">
             <!-- Dynamically populated -->
@@ -78,6 +100,23 @@
                         window.railwaySystem.reset();
                         selectedSeatByTrain.clear();
                         renderAllTrainCards();
+                        const cancelStatus = document.getElementById("globalCancelStatus");
+                        if (cancelStatus) cancelStatus.innerHTML = "";
+                    }
+                });
+            }
+
+            // Quick Cancellation by Passenger ID button & enter key
+            const globalCancelBtn = document.getElementById("btnGlobalCancel");
+            const globalCancelInput = document.getElementById("globalCancelInput");
+            if (globalCancelBtn) {
+                globalCancelBtn.addEventListener("click", handleGlobalCancel);
+            }
+            if (globalCancelInput) {
+                globalCancelInput.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleGlobalCancel();
                     }
                 });
             }
@@ -90,9 +129,9 @@
                     const cancelBtn = e.target.closest(".cancel-btn");
                     if (cancelBtn) {
                         const trainId = cancelBtn.dataset.trainId;
-                        const reservationId = cancelBtn.dataset.reservationId;
+                        const passengerId = cancelBtn.dataset.passengerId;
                         const seatNum = parseInt(cancelBtn.dataset.seatNumber, 10);
-                        handleConfirmCancel(trainId, reservationId, seatNum);
+                        handleConfirmCancelByPassengerId(trainId, passengerId, seatNum);
                         return;
                     }
 
@@ -204,10 +243,10 @@
                 if (res) {
                     const isSelected = selected && selected.type === "occupied" && selected.seatNumber === seatNum;
                     seatBoxesHtml += `
-                        <div class="seat-box filled ${isSelected ? 'selected-occupied' : ''}" data-train-id="${train.id}" data-seat="${seatNum}" title="Seat #${seatNum}: ${escapeHtml(res.passenger.name)} (${res.passenger.id}) - Reservation: ${res.id} (Click to view or cancel)">
+                        <div class="seat-box filled ${isSelected ? 'selected-occupied' : ''}" data-train-id="${train.id}" data-seat="${seatNum}" title="Seat #${seatNum}: ${escapeHtml(res.passenger.name)} (${res.passenger.id}) - Click to manage or cancel">
                             <span class="seat-num">#${seatNum}</span>
                             <span class="seat-passenger-tag">${escapeHtml(res.passenger.name)}</span>
-                            <span class="seat-res-id">${res.id}</span>
+                            <span class="seat-passenger-id">${escapeHtml(res.passenger.id)}</span>
                         </div>
                     `;
                 } else {
@@ -278,7 +317,7 @@
                             <div>
                                 <span class="status-tag-booked">Seat #${selected.seatNumber} Booked</span>
                                 <span style="font-size: 0.85rem; margin-left: 0.5rem; color: #0f172a;">
-                                    <strong>${escapeHtml(res.passenger.name)}</strong> (${res.id})
+                                    Occupied by: <strong>${escapeHtml(res.passenger.name)}</strong> (${escapeHtml(res.passenger.id)})
                                 </span>
                             </div>
                             <button class="btn-action secondary btn-deselect" data-train-id="${train.id}" style="padding: 0.2rem 0.55rem; font-size: 0.75rem;">
@@ -286,8 +325,8 @@
                             </button>
                         </div>
                         <div class="action-row" style="margin-top: 0.4rem;">
-                            <button class="btn-action cancel cancel-btn" data-train-id="${train.id}" data-reservation-id="${res.id}" data-seat-number="${selected.seatNumber}">
-                                Cancel this booking
+                            <button class="btn-action cancel cancel-btn" data-train-id="${train.id}" data-passenger-id="${escapeHtml(res.passenger.id)}" data-seat-number="${selected.seatNumber}">
+                                Cancel booking for ${escapeHtml(res.passenger.id)}
                             </button>
                         </div>
                     </div>
@@ -306,10 +345,10 @@
                     <span class="priority-badge ${priorityClass}">${train.priority}</span>
                 </div>
                 <div class="train-card-meta">
-                    <span>Arrival: ${train.arrival}</span>
-                    <span>Departure: ${train.departure}</span>
-                    <span>Length: ${train.length}m</span>
-                    <span>Waiting: ${waitingCount}</span>
+                    <span><strong>Arrival:</strong> ${train.arrival}</span>
+                    <span><strong>Departure:</strong> ${train.departure}</span>
+                    <span><strong>Length:</strong> ${train.length}m</span>
+                    <span><strong>Waiting:</strong> ${waitingCount}</span>
                 </div>
                 <div class="train-card-seatgrid-wrapper">
                     <div class="seat-grid" id="seatGrid-${train.id}">
@@ -367,7 +406,7 @@
             renderAllTrainCards();
 
             // Clear, unambiguous notification
-            showStatus(trainId, `Seat #${seatNum} is already booked by ${res.passenger.name} (${res.id}).`, "error");
+            showStatus(trainId, `Seat #${seatNum} is occupied by ${res.passenger.name} (${res.passenger.id}). Click "Cancel booking for ${res.passenger.id}" below.`, "info");
         }
         window.handleOccupiedSeatClick = handleOccupiedSeatClick;
 
@@ -400,17 +439,17 @@
             } else {
                 selectedSeatByTrain.delete(trainId);
                 renderAllTrainCards();
-                showStatus(trainId, `Booked — Seat ${seatNumber}/10 confirmed for ${passengerName}`, "success");
+                showStatus(trainId, `Booked — Seat ${seatNumber}/10 confirmed for ${passengerName} (${passengerId})`, "success");
             }
         }
         window.handleConfirmBooking = handleConfirmBooking;
 
-        // Cancellation Confirmation Handler
-        function handleConfirmCancel(trainId, reservationId, seatNumber) {
-            console.log("Cancel clicked for reservation:", reservationId);
+        // Cancellation Confirmation Handler by Passenger ID
+        function handleConfirmCancelByPassengerId(trainId, passengerId, seatNumber) {
+            console.log("Cancelling booking for passenger ID:", passengerId, "on train:", trainId);
 
-            if (!reservationId) {
-                console.error("handleConfirmCancel: No reservationId provided");
+            if (!passengerId) {
+                console.error("handleConfirmCancelByPassengerId: No passengerId provided");
                 return;
             }
 
@@ -420,29 +459,74 @@
                 return;
             }
 
-            const result = window.railwaySystem.cancelBooking(trainId, reservationId);
+            const result = window.railwaySystem.cancelBookingByPassengerId(trainId, passengerId);
             const lastResult = window.railwaySystem.lastCancelResult;
 
             selectedSeatByTrain.delete(trainId);
             renderAllTrainCards();
 
-            if (result && result.ok === false) {
-                showStatus(trainId, result.reason || `Reservation ${reservationId} not found`, "error");
-            } else if (lastResult && !lastResult.success) {
-                showStatus(trainId, lastResult.error || `Reservation ${reservationId} not found`, "error");
-            } else if (result) {
-                // Promoted reservation returned
-                const promoted = result;
-                const seatNum = lastResult.freedSeatNumber;
-                showStatus(trainId, `Reservation ${reservationId} cancelled. Seat ${seatNum} reassigned to ${promoted.passenger.name} (promoted from waiting list).`, "success");
+            if (!result || result.ok === false) {
+                const reason = (result && result.reason) || (lastResult && lastResult.error) || `No confirmed booking found for passenger ${passengerId}`;
+                showStatus(trainId, reason, "error");
+            } else if (result.promoted) {
+                const promoted = result.promoted;
+                const seatNum = result.cancelledSeat || (lastResult && lastResult.freedSeatNumber) || seatNumber;
+                showStatus(trainId, `Booking for ${passengerId} cancelled. Seat #${seatNum} reassigned to ${promoted.passenger.name} (${promoted.passenger.id}) from waiting list.`, "success");
                 highlightReassignedSeat(trainId, seatNum);
             } else {
-                // Null returned (no promotion, seat now empty)
-                const seatNum = (lastResult && lastResult.freedSeatNumber) || seatNumber;
-                showStatus(trainId, `Reservation ${reservationId} cancelled. Seat ${seatNum} is now empty.`, "info");
+                const seatNum = (result && result.cancelledSeat) || (lastResult && lastResult.freedSeatNumber) || seatNumber;
+                showStatus(trainId, `Booking for ${passengerId} cancelled. Seat #${seatNum} is now empty.`, "info");
             }
         }
-        window.handleConfirmCancel = handleConfirmCancel;
+        window.handleConfirmCancelByPassengerId = handleConfirmCancelByPassengerId;
+        window.handleConfirmCancel = function(trainId, resOrPId, seatNumber) {
+            handleConfirmCancelByPassengerId(trainId, resOrPId, seatNumber);
+        };
+
+        // Global Cancellation Handler
+        function handleGlobalCancel() {
+            const input = document.getElementById("globalCancelInput");
+            if (!input) return;
+            const passengerId = input.value.trim();
+            const statusEl = document.getElementById("globalCancelStatus");
+
+            if (!passengerId) {
+                if (statusEl) statusEl.innerHTML = `<div class="status-msg error">Please enter a Passenger ID (e.g. P001, P004)</div>`;
+                return;
+            }
+
+            const result = window.railwaySystem.cancelBookingByPassengerId(passengerId);
+            const lastResult = window.railwaySystem.lastCancelResult;
+
+            renderAllTrainCards();
+
+            if (!result || result.ok === false) {
+                const reason = (result && result.reason) || (lastResult && lastResult.error) || `No confirmed booking found for passenger ${passengerId}`;
+                if (statusEl) statusEl.innerHTML = `<div class="status-msg error">${escapeHtml(reason)}</div>`;
+            } else {
+                input.value = "";
+                const trainId = result.trainId || (result.train && result.train.id) || "";
+                const seatNum = result.cancelledSeat || (lastResult && lastResult.freedSeatNumber);
+                if (result.promoted) {
+                    const promoted = result.promoted;
+                    if (statusEl) {
+                        statusEl.innerHTML = `<div class="status-msg success">Booking for ${escapeHtml(passengerId)} cancelled${trainId ? ` on ${trainId}` : ''}. Seat #${seatNum} reassigned to ${escapeHtml(promoted.passenger.name)} (${escapeHtml(promoted.passenger.id)}) from waiting list.</div>`;
+                    }
+                    if (trainId) {
+                        showStatus(trainId, `Booking for ${passengerId} cancelled. Seat #${seatNum} reassigned to ${promoted.passenger.name} (${promoted.passenger.id}) from waiting list.`, "success");
+                        highlightReassignedSeat(trainId, seatNum);
+                    }
+                } else {
+                    if (statusEl) {
+                        statusEl.innerHTML = `<div class="status-msg info">Booking for ${escapeHtml(passengerId)} cancelled${trainId ? ` on ${trainId}` : ''}. Seat #${seatNum} is now empty.</div>`;
+                    }
+                    if (trainId) {
+                        showStatus(trainId, `Booking for ${passengerId} cancelled. Seat #${seatNum} is now empty.`, "info");
+                    }
+                }
+            }
+        }
+        window.handleGlobalCancel = handleGlobalCancel;
 
         // Waitlist Handlers
         function handleToggleWaitlist(trainId) {

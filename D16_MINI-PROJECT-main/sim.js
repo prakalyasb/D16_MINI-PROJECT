@@ -339,6 +339,85 @@ class TrainService {
 
         return null;
     }
+
+    /**
+     * Cancels an existing booking by Passenger ID and promotes the next waiting passenger if present.
+     *
+     * @param {string} passengerId
+     * @param {RailwaySystem} [systemRef]
+     * @returns {{ ok: boolean, reason?: string, cancelledSeat?: number, promoted?: Reservation|null }}
+     */
+    cancelBookingByPassengerId(passengerId, systemRef) {
+        this.lastCancelResult = null;
+
+        if (!passengerId) {
+            return { ok: false, reason: "Passenger ID is required" };
+        }
+
+        const targetPId = String(passengerId).trim();
+
+        // Search this.seats for the entry where seat.passenger.id === passengerId
+        let seatIndex = this.seats.findIndex(r => r && r.passenger && (r.passenger.id === targetPId || r.passenger.id.toUpperCase() === targetPId.toUpperCase()));
+
+        if (seatIndex === -1) {
+            const reason = "No confirmed booking found for passenger " + passengerId;
+            console.error(reason + " on Train " + this.id);
+            window.eventLog.push(`CANCEL ERROR: ${reason} on Train ${this.id}`);
+            this.lastCancelResult = { success: false, error: reason, freedSeatNumber: null, promotedReservation: null };
+            if (systemRef) {
+                systemRef.lastCancelResult = this.lastCancelResult;
+                systemRef.saveToStorage();
+            }
+            return { ok: false, reason: reason };
+        }
+
+        const cancelledRes = this.seats[seatIndex];
+        cancelledRes.markCancelled();
+        const freedSeat = seatIndex + 1;
+        this.seats[seatIndex] = null;
+
+        const cancelLog = `CANCEL: Passenger ${cancelledRes.passenger.id} (${cancelledRes.passenger.name}) on Train ${this.id} cancelled (Seat ${freedSeat} freed, reservation ${cancelledRes.id})`;
+        window.eventLog.push(cancelLog);
+
+        if (this.waitingQueue.length > 0) {
+            const promotedPassenger = this.waitingQueue.shift(); // strictly FIFO shift()
+            const newResId = systemRef ? systemRef.generateReservationId() : `R${String(Date.now()).slice(-3)}`;
+            const promotedRes = new Reservation(newResId, promotedPassenger, this.id, freedSeat);
+
+            this.seats[seatIndex] = promotedRes;
+
+            const promoteLog = `PROMOTE: Passenger ${promotedPassenger.id} (${promotedPassenger.name}) promoted from waiting list -> seat ${freedSeat} CONFIRMED as ${newResId}`;
+            window.eventLog.push(promoteLog);
+
+            this.lastCancelResult = {
+                success: true,
+                error: null,
+                freedSeatNumber: freedSeat,
+                promotedReservation: promotedRes
+            };
+
+            if (systemRef) {
+                systemRef.lastCancelResult = this.lastCancelResult;
+                systemRef.saveToStorage();
+            }
+
+            return { ok: true, cancelledSeat: freedSeat, promoted: promotedRes };
+        }
+
+        this.lastCancelResult = {
+            success: true,
+            error: null,
+            freedSeatNumber: freedSeat,
+            promotedReservation: null
+        };
+
+        if (systemRef) {
+            systemRef.lastCancelResult = this.lastCancelResult;
+            systemRef.saveToStorage();
+        }
+
+        return { ok: true, cancelledSeat: freedSeat, promoted: null };
+    }
 }
 
 /**
@@ -480,6 +559,75 @@ class RailwaySystem {
         const res = train.cancelBooking(reservationId, this);
         this.lastCancelResult = train.lastCancelResult;
         return res;
+    }
+
+    /**
+     * Cancels a booking by Passenger ID and handles waitlist promotion.
+     * Supports both:
+     *   cancelBookingByPassengerId(trainId, passengerId)
+     *   cancelBookingByPassengerId(passengerId)  // global search across all trains
+     *
+     * @param {string} arg1 - trainId or passengerId
+     * @param {string} [arg2] - passengerId if arg1 is trainId
+     * @returns {{ ok: boolean, reason?: string, cancelledSeat?: number, promoted?: Reservation|null, trainId?: string, train?: TrainService }}
+     */
+    cancelBookingByPassengerId(arg1, arg2) {
+        let trainId = null;
+        let passengerId = null;
+
+        if (arg2 !== undefined && arg2 !== null && String(arg2).trim() !== "") {
+            trainId = String(arg1).trim();
+            passengerId = String(arg2).trim();
+        } else {
+            passengerId = String(arg1).trim();
+        }
+
+        if (!passengerId) {
+            const err = "Passenger ID is required";
+            this.lastCancelResult = { success: false, error: err, freedSeatNumber: null, promotedReservation: null };
+            return { ok: false, reason: err };
+        }
+
+        if (trainId) {
+            const train = this.trains.get(trainId);
+            if (!train) {
+                const err = `Train ${trainId} not found`;
+                console.error(err);
+                this.lastCancelResult = { success: false, error: err, freedSeatNumber: null, promotedReservation: null };
+                return { ok: false, reason: err };
+            }
+            const res = train.cancelBookingByPassengerId(passengerId, this);
+            this.lastCancelResult = train.lastCancelResult;
+            if (res && res.ok) {
+                res.trainId = trainId;
+                res.train = train;
+            }
+            return res;
+        }
+
+        // Global search across all trains
+        for (const train of this.trains.values()) {
+            const hasBooking = train.seats.some(r => r && r.passenger && (
+                r.passenger.id === passengerId ||
+                r.passenger.id.toUpperCase() === passengerId.toUpperCase()
+            ));
+            if (hasBooking) {
+                const res = train.cancelBookingByPassengerId(passengerId, this);
+                this.lastCancelResult = train.lastCancelResult;
+                if (res && res.ok) {
+                    res.trainId = train.id;
+                    res.train = train;
+                }
+                return res;
+            }
+        }
+
+        const notFound = `No confirmed booking found for passenger ${passengerId}`;
+        console.error(notFound + " on any train");
+        window.eventLog.push(`CANCEL ERROR: ${notFound} on any train`);
+        this.lastCancelResult = { success: false, error: notFound, freedSeatNumber: null, promotedReservation: null };
+        this.saveToStorage();
+        return { ok: false, reason: notFound };
     }
 
     /**
