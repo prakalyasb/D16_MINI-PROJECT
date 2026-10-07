@@ -77,20 +77,34 @@
             </div>
         </section>
 
-        <!-- System Status Banner -->
-        <div id="homeStatusContainer" style="margin-top: 1.5rem;"></div>
+        <!-- Global Live Terminal Output Panel -->
+        <section style="margin-top: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">
+                    System Console Event Stream
+                </h2>
+                <span style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);">
+                    Mirrors Java Console Application Output
+                </span>
+            </div>
+
+            <div id="homeTerminalContainer">
+                <!-- Rendered by terminal-widget.js -->
+            </div>
+        </section>
     </main>
 
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-container">
             <div>Payanam Junction &bull; Mini-Project Team D16</div>
-            <div class="footer-tech">Java 17+ Backend Architecture &bull; Web Simulator</div>
+            <div class="footer-tech">Java 17+ Backend Architecture &bull; Monospace Terminal UI</div>
         </div>
     </footer>
 
-    <!-- Shared Logic Script -->
+    <!-- Shared Logic Scripts -->
     <script src="sim.js"></script>
+    <script src="terminal-widget.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             renderDashboard();
@@ -100,11 +114,6 @@
                 if (confirm("Reset all reservations and logs to initial state?")) {
                     window.railwaySystem.reset();
                     renderDashboard();
-                    const statusEl = document.getElementById("homeStatusContainer");
-                    if (statusEl) {
-                        statusEl.innerHTML = '<div class="status-msg info">System state reset to initial schedules and empty bookings.</div>';
-                        setTimeout(() => { if (statusEl) statusEl.innerHTML = ""; }, 3000);
-                    }
                 }
             });
         });
@@ -197,6 +206,9 @@
             // Update stats bar
             document.getElementById("statConfirmedSeats").textContent = `${totalConfirmed} / 60`;
             document.getElementById("statWaitingList").textContent = `${totalWaiting}`;
+
+            // Render live terminal output
+            renderTerminal("homeTerminalContainer", window.eventLog, "PAYANAM CENTRAL CONSOLE LOG");
         }
     </script>
 </body>

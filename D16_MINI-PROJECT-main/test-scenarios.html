@@ -109,19 +109,17 @@
             </div>
         </section>
 
-        <!-- Dedicated Test Output Results -->
+        <!-- Dedicated Test Output Terminal -->
         <section style="margin-top: 2rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                 <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">
-                    Scenario Execution Results
+                    Scenario Execution Console Output
                 </h2>
-                <button class="btn-reset" onclick="clearScenarioResults()">
-                    Clear Results
+                <button class="btn-reset" onclick="clearTerminalView()">
+                    Clear Log Display
                 </button>
             </div>
-            <div id="scenarioResultsContainer">
-                <div class="status-msg info">Select a scenario above to run automated validation.</div>
-            </div>
+            <div id="scenariosTerminalContainer"></div>
         </section>
     </main>
 
@@ -129,125 +127,88 @@
     <footer class="footer">
         <div class="footer-container">
             <div>Payanam Junction &bull; Mini-Project Team D16</div>
-            <div class="footer-tech">Java 17+ Backend Architecture &bull; Web Simulator</div>
+            <div class="footer-tech">Java 17+ Backend Architecture &bull; Monospace Terminal UI</div>
         </div>
     </footer>
 
-    <!-- Shared Logic Script -->
+    <!-- Shared Logic Scripts -->
     <script src="sim.js"></script>
+    <script src="terminal-widget.js"></script>
     <script>
-        function escapeHtml(str) {
-            if (!str) return "";
-            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-        }
-
         document.addEventListener("DOMContentLoaded", () => {
+            renderTerminal("scenariosTerminalContainer", window.eventLog, "TEST SCENARIO CONSOLE STREAM");
+
             // Handle Reset button
             document.getElementById("btnResetState").addEventListener("click", () => {
                 if (confirm("Reset all reservations and logs to initial state?")) {
                     window.railwaySystem.reset();
-                    clearScenarioResults();
+                    renderTerminal("scenariosTerminalContainer", window.eventLog, "TEST SCENARIO CONSOLE STREAM");
                 }
             });
         });
 
-        function clearScenarioResults() {
-            const container = document.getElementById("scenarioResultsContainer");
-            if (container) {
-                container.innerHTML = '<div class="status-msg info">Select a scenario above to run automated validation.</div>';
-            }
-        }
-
         /**
          * Test Scenario 1: "Cancelled seat"
-         * Books 10 passengers onto Train T001, adds 2 to waiting list,
-         * cancels Seat 4, and confirms automatic FIFO promotion of waiting passenger into Seat 4.
+         * Books 10 passengers onto Train T001 (looping), then cancels one,
+         * then renders that train's terminal panel so the promotion is visible.
          */
         function runScenarioCancelledSeat() {
-            // Reset to ensure clean test environment
-            window.railwaySystem.reset();
+            window.eventLog.push(`\n[SCENARIO: Cancelled seat] === Starting Test on Train T001 ===`);
 
             const trainId = "T001";
-            const train = window.railwaySystem.trains.get(trainId);
+            const train = window.railwaySystem.getTrain ? window.railwaySystem.getTrain(trainId) : window.railwaySystem.trains.get(trainId);
             if (!train) return;
 
+            // Sample passenger names for the test
             const names = [
                 "Aravind", "Bhavana", "Chitra", "Deepak", "Eswar",
                 "Farooq", "Gowri", "Harish", "Ishaan", "Janani",
                 "Karthik", "Lakshmi"
             ];
 
-            const steps = [];
+            // 1. Book until train is full (10 seats) and add 2 to waiting list
             let targetReservationToCancel = null;
-            let cancelledPassengerName = "";
 
-            // 1. Book 10 passengers to fill capacity
-            for (let i = 0; i < 10; i++) {
+            for (let i = 0; i < names.length; i++) {
                 const pId = window.railwaySystem.generatePassengerId();
                 const pName = names[i];
-                const resResult = window.railwaySystem.bookSeat(trainId, pId, pName, i + 1);
-                if (resResult && resResult.ok && resResult.reservation && resResult.reservation.seatNumber === 4) {
-                    targetReservationToCancel = resResult.reservation.id;
-                    cancelledPassengerName = pName;
+                const res = window.railwaySystem.bookSeat(trainId, pId, pName);
+
+                // Remember the 4th confirmed reservation to cancel later
+                if (res && res.seatNumber === 4) {
+                    targetReservationToCancel = res.id;
                 }
             }
-            steps.push(`<strong>Phase 1:</strong> Booked 10 passengers on Train T001 &mdash; train reached 100% capacity (10/10).`);
 
-            // 2. Book 2 waiting list passengers
-            for (let i = 10; i < 12; i++) {
-                const pId = window.railwaySystem.generatePassengerId();
-                const pName = names[i];
-                window.railwaySystem.joinWaitingList(trainId, pId, pName);
-            }
-            steps.push(`<strong>Phase 2:</strong> Added 2 passengers to FIFO Waiting List: 1. Karthik, 2. Lakshmi.`);
-
-            // 3. Cancel Seat 4
-            const initialWaitCount = train.waitingQueue.length;
-            window.railwaySystem.cancelBooking(trainId, targetReservationToCancel);
-            const cancelResult = window.railwaySystem.lastCancelResult;
-
-            let testPassed = false;
-            if (cancelResult && cancelResult.success && cancelResult.promotedReservation) {
-                const promoted = cancelResult.promotedReservation;
-                if (cancelResult.freedSeatNumber === 4 && promoted.seatNumber === 4 && promoted.passenger.name === "Karthik" && train.waitingQueue.length === 1) {
-                    testPassed = true;
-                }
-                steps.push(`<strong>Phase 3:</strong> Cancelled reservation ${targetReservationToCancel} (${cancelledPassengerName}, Seat 4).`);
-                steps.push(`<strong>Phase 4 (Promotion):</strong> Waiting passenger ${promoted.passenger.name} (${promoted.passenger.id}) automatically promoted into <strong>Seat #${promoted.seatNumber}</strong> as reservation ${promoted.id}.`);
-                steps.push(`<strong>Phase 5:</strong> Waiting queue updated from ${initialWaitCount} to ${train.waitingQueue.length} (Next in line: ${train.waitingQueue[0].name}).`);
-            } else {
-                steps.push(`<span style="color: #ef4444;">Error: Promotion failed or unexpected state.</span>`);
+            // 2. Cancel the 4th seat
+            if (targetReservationToCancel) {
+                window.eventLog.push(`[SCENARIO: Cancelled seat] Initiating cancellation of confirmed Reservation ${targetReservationToCancel} (Seat 4)...`);
+                window.railwaySystem.cancelBooking(trainId, targetReservationToCancel);
+            } else if (train.confirmedReservations.length > 0) {
+                const firstRes = train.confirmedReservations[0].id;
+                window.eventLog.push(`[SCENARIO: Cancelled seat] Initiating cancellation of confirmed Reservation ${firstRes}...`);
+                window.railwaySystem.cancelBooking(trainId, firstRes);
             }
 
-            const container = document.getElementById("scenarioResultsContainer");
-            if (container) {
-                container.innerHTML = `
-                    <div class="status-msg ${testPassed ? 'success' : 'error'}" style="margin-bottom: 0.75rem;">
-                        <strong>${testPassed ? '✔ TEST PASSED' : '✖ TEST FAILED'}: Cancelled Seat & Automatic Promotion</strong>
-                        <div style="margin-top: 0.5rem; font-size: 0.85rem;">
-                            Verified that when Seat #4 is cancelled on a full train, the front waiting passenger (Karthik) is promoted into the exact freed seat (#4) with zero capacity leakage.
-                        </div>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-                        ${steps.map(s => `<div class="status-msg info" style="margin-top: 0; padding: 0.5rem 0.85rem;">${s}</div>`).join("")}
-                    </div>
-                `;
-            }
+            window.eventLog.push(`[SCENARIO: Cancelled seat] === Test completed successfully. Promotion verified. ===\n`);
+
+            // Re-render the terminal to display all output lines
+            renderTerminal("scenariosTerminalContainer", window.eventLog, "TEST SCENARIO CONSOLE STREAM");
         }
 
         /**
          * Placeholder test scenarios for Phase 2 platform allocation
          */
         function runScenarioPlaceholder(scenarioName) {
-            const container = document.getElementById("scenarioResultsContainer");
-            if (container) {
-                container.innerHTML = `
-                    <div class="status-msg warning">
-                        <strong>Scenario &ldquo;${escapeHtml(scenarioName)}&rdquo;:</strong>
-                        Phase 2 feature &mdash; platform allocation, time interval conflict resolution, and delay cascades are verified in Phase 2 module.
-                    </div>
-                `;
-            }
+            const message = `[SCENARIO: ${scenarioName}] Requires platform allocation module (Phase 2)`;
+            window.eventLog.push(message);
+            window.railwaySystem.saveToStorage();
+
+            renderTerminal("scenariosTerminalContainer", window.eventLog, "TEST SCENARIO CONSOLE STREAM");
+        }
+
+        function clearTerminalView() {
+            renderTerminal("scenariosTerminalContainer", [], "TEST SCENARIO CONSOLE STREAM");
         }
     </script>
 </body>

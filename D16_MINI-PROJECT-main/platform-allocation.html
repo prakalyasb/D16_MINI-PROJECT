@@ -71,34 +71,56 @@
             </table>
         </div>
 
-        <!-- Operational Status Banner -->
-        <div id="platformStatusContainer" style="margin-top: 1.5rem;"></div>
+        <!-- System Console Terminal Output -->
+        <section style="margin-top: 2.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">
+                    System Console Event Stream
+                </h2>
+                <span style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);">
+                    Platform Dispatcher Log
+                </span>
+            </div>
+            <div id="platformTerminalContainer"></div>
+        </section>
     </main>
 
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-container">
             <div>Payanam Junction &bull; Mini-Project Team D16</div>
-            <div class="footer-tech">Java 17+ Backend Architecture &bull; Web Simulator</div>
+            <div class="footer-tech">Java 17+ Backend Architecture &bull; Monospace Terminal UI</div>
         </div>
     </footer>
 
-    <!-- Shared Logic Script -->
+    <!-- Shared Logic Scripts -->
     <script src="sim.js"></script>
+    <script src="terminal-widget.js"></script>
     <script>
+        // =========================================================================
+        // TODO: platform allocation logic — Phase 2
+        //
+        // This module will integrate with the future Java TrainService.setSchedule()
+        // and platform assignment algorithms:
+        //  1. Check train length <= platform length before routing.
+        //  2. Check for overlapping [arrivalTime, departureTime] intervals on the candidate platform.
+        //  3. Preempt or reroute based on train priority: EMERGENCY > CONNECTING > SCHEDULED.
+        //  4. Cascade delay propagation to dependent departures.
+        //
+        // NOTE: No fake allocation behavior is invented here until the official
+        // Java Phase 2 engine is delivered.
+        // =========================================================================
+
         document.addEventListener("DOMContentLoaded", () => {
             renderPlatformTable();
+            renderTerminal("platformTerminalContainer", window.eventLog, "PLATFORM ALLOCATION STREAM");
 
             // Handle Reset button
             document.getElementById("btnResetState").addEventListener("click", () => {
                 if (confirm("Reset all reservations and logs to initial state?")) {
                     window.railwaySystem.reset();
                     renderPlatformTable();
-                    const statusEl = document.getElementById("platformStatusContainer");
-                    if (statusEl) {
-                        statusEl.innerHTML = '<div class="status-msg info">Platforms reset to unallocated idle state.</div>';
-                        setTimeout(() => { if (statusEl) statusEl.innerHTML = ""; }, 3000);
-                    }
+                    renderTerminal("platformTerminalContainer", window.eventLog, "PLATFORM ALLOCATION STREAM");
                 }
             });
         });

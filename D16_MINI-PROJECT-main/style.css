@@ -381,7 +381,7 @@ body {
     margin-bottom: 2rem;
 }
 
-.dashboard-grid .train-card {
+.train-card {
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -392,7 +392,7 @@ body {
     transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.dashboard-grid .train-card:hover {
+.train-card:hover {
     border-color: #3b82f6;
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
     transform: translateY(-2px);
@@ -501,529 +501,203 @@ body {
 /* =========================================================================
    Reservations Page & 10-Box Seat Grid
    ========================================================================= */
-
-/* Quick Cancellation by Passenger ID Section */
-.global-cancel-section {
-  margin-bottom: 2rem;
-  width: 100%;
+.reservation-trains-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 1.75rem;
 }
 
-.global-cancel-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-left: 4px solid #ef4444;
-  border-radius: 12px;
-  padding: 18px 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  color: #1e293b;
+.res-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
 }
 
-.global-cancel-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.res-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 0.85rem;
 }
 
-.global-cancel-icon {
-  font-size: 1.8rem;
-  line-height: 1;
+.res-train-meta {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
 }
 
-.global-cancel-header h2 {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0 0 3px 0;
+/* 10-Box Seat Grid */
+.seat-grid-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
-.global-cancel-desc {
-  font-size: 0.88rem;
-  color: #64748b;
-  margin: 0;
+.seat-grid-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    justify-content: space-between;
 }
 
-.global-cancel-desc code {
-  background: #f1f5f9;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  color: #0f172a;
-  font-size: 0.82rem;
-}
-
-.global-cancel-form {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.global-cancel-input {
-  flex: 1;
-  min-width: 240px;
-  max-width: 380px;
-  padding: 9px 14px;
-  font-size: 0.92rem;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 8px;
-  background-color: #f8fafc;
-  color: #0f172a;
-  outline: none;
-  font-family: inherit;
-  transition: all 0.2s ease;
-}
-
-.global-cancel-input:focus {
-  border-color: #ef4444;
-  background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
-}
-
-.btn-global-cancel {
-  padding: 9px 18px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  border-radius: 8px;
-  white-space: nowrap;
-}
-
-.global-cancel-status {
-  width: 100%;
-}
-
-/* 6 Train Cards Container & Card Sizing */
-.train-cards-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 24px;
-  align-items: stretch;
-  width: 100%;
-}
-
-.train-card {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 22px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  gap: 14px;
-  color: #1e293b;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.train-card:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
-  border-color: #cbd5e1;
-}
-
-.train-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.train-card-header h3 {
-  margin: 0;
-  font-size: 1.05rem;
-  overflow-wrap: break-word;
-  color: #0f172a;
-  font-weight: 700;
-  line-height: 1.3;
-  flex: 1;
-  min-width: 0;
-}
-
-.train-card-header .priority-badge {
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.train-card-meta {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px 14px;
-  background-color: #f8fafc;
-  padding: 10px 14px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  font-size: 0.82rem;
-  color: #475569;
-}
-
-.train-card-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.train-card-meta span strong {
-  color: #0f172a;
-  font-weight: 600;
-}
-
-.train-card-seatgrid-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  padding: 6px 0;
-}
-
-.train-card-controls {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-}
-
-.train-card-controls > * {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* 10-Box Seat Grid (Proportional Sizing & Centering) */
 .seat-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(50px, 62px));
-  gap: 8px;
-  justify-content: center;
-  width: 100%;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
 }
 
 .seat-box {
-  width: 100%;
-  aspect-ratio: 1;
-  min-height: 58px;
-  box-sizing: border-box;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  border: 1.5px solid #cbd5e1;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  padding: 3px 2px;
-  position: relative;
-  text-align: center;
-  cursor: default;
-  overflow: hidden;
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    padding: 4px;
+    position: relative;
+    cursor: default;
 }
 
-/* Free seat = sleek light gray, clickable for booking */
+/* Free seat = sleek gray */
 .seat-box.empty {
-  background-color: #f8fafc;
-  border-color: #cbd5e1;
-  color: #64748b;
-  cursor: pointer;
-}
-
-.seat-box.empty:hover {
-  background-color: #e0f2fe;
-  border-color: #0284c7;
-  color: #0284c7;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.2);
-}
-
-/* Selected empty seat for booking (blue highlight) */
-.seat-box.empty.selected, .seat-box.selected {
-  background-color: #0284c7 !important;
-  border: 2px solid #0369a1 !important;
-  box-shadow: 0 0 12px rgba(2, 132, 199, 0.4) !important;
-  color: #ffffff !important;
-  transform: scale(1.05) translateY(-2px);
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: #334155;
+    color: #64748b;
 }
 
 .seat-box.empty .seat-num {
-  font-size: 13px;
-  font-weight: 700;
-  color: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
 }
 
 .seat-box.empty .seat-status-tag {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: inherit;
-  margin-top: 2px;
+    font-size: 0.65rem;
+    color: #64748b;
 }
 
-/* Booked seat = green, clickable to cancel */
+/* Booked seat = green */
 .seat-box.filled {
-  background-color: #ecfdf5;
-  border-color: #10b981;
-  color: #065f46;
-  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.15);
-  cursor: pointer;
-}
-
-.seat-box.filled:hover {
-  border-color: #ef4444;
-  background-color: #fee2e2;
-  color: #991b1b;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
-  transform: translateY(-2px);
-}
-
-/* Selected occupied seat for cancellation (red highlight) */
-.seat-box.filled.selected-occupied {
-  background-color: #fee2e2 !important;
-  border: 2px solid #ef4444 !important;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4) !important;
-  color: #991b1b !important;
-  transform: scale(1.05) translateY(-2px);
+    background-color: rgba(16, 185, 129, 0.18);
+    border-color: #10b981;
+    color: #34d399;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
 }
 
 .seat-box.filled .seat-num {
-  font-size: 13px;
-  font-weight: 700;
-  color: #065f46;
-}
-
-.seat-box.filled.selected-occupied .seat-num {
-  color: #991b1b;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ffffff;
 }
 
 .seat-box.filled .seat-passenger-tag {
-  font-size: 10px;
-  color: #047857;
-  font-weight: 600;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: center;
-  margin-top: 2px;
-  line-height: 1.1;
+    font-size: 0.68rem;
+    color: #a7f3d0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
 }
 
-.seat-box.filled.selected-occupied .seat-passenger-tag {
-  color: #b91c1c;
-}
-
-.seat-box.filled .seat-passenger-id,
 .seat-box.filled .seat-res-id {
-  font-size: 9px;
-  color: #059669;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  margin-top: 1px;
-  line-height: 1.1;
+    font-size: 0.62rem;
+    color: #6ee7b7;
+    font-weight: 600;
 }
 
-.seat-box.filled.selected-occupied .seat-passenger-id,
-.seat-box.filled.selected-occupied .seat-res-id {
-  color: #dc2626;
+/* Waiting List Banner in card */
+.waiting-badge-container {
+    background-color: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.8rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
 }
 
-/* Pulse animation on reassigned seat */
-@keyframes pulseReassign {
-  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.8); transform: scale(1); }
-  50% { box-shadow: 0 0 16px 4px rgba(16, 185, 129, 0.9); transform: scale(1.08); }
-  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); transform: scale(1); }
+.waiting-badge-container .wait-label {
+    color: #fbbf24;
+    font-weight: 600;
 }
 
-.seat-box.reassigned-pulse {
-  animation: pulseReassign 1s ease-in-out 2;
-  border-color: #10b981 !important;
+.waiting-badge-container .wait-names {
+    color: #fde68a;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
 }
 
-/* Contextual seat action box & hints */
-.seat-action-box {
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  box-sizing: border-box;
-}
-
-.seat-action-box.booking-box {
-  border-left: 4px solid #0284c7;
-}
-
-.seat-action-box.cancellation-box {
-  border-left: 4px solid #ef4444;
-  background-color: #fef2f2;
-  border-color: #fecaca;
-}
-
-.seat-action-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-  color: #0f172a;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.status-tag-booked {
-  color: #b91c1c;
-  font-weight: 700;
-  font-size: 11px;
-  background: #fee2e2;
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid #fca5a5;
-}
-
-.seat-selection-hint {
-  font-size: 12px;
-  color: #64748b;
-  text-align: center;
-  padding: 6px 4px;
-  font-style: italic;
+/* Reservation Action Controls */
+.res-actions-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem;
 }
 
 .action-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+    display: flex;
+    gap: 0.5rem;
 }
 
-.train-card-controls .input-control {
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #1e293b;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  flex: 1;
-  box-sizing: border-box;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+.input-control {
+    background-color: #0b0f19;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: var(--radius-sm);
+    flex: 1;
+    transition: border-color 0.2s ease;
 }
 
-.train-card-controls .input-control:focus {
-  outline: none;
-  border-color: #0284c7;
-  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+.input-control:focus {
+    outline: none;
+    border-color: #3b82f6;
 }
 
 .btn-action {
-  background-color: #0284c7;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+    background-color: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    white-space: nowrap;
 }
 
 .btn-action:hover {
-  background-color: #0369a1;
+    background-color: #1d4ed8;
 }
 
-.btn-action.cancel, .cancel-btn {
-  background-color: #ef4444;
-  color: #ffffff;
-  border: none;
+.btn-action.cancel {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
 }
 
-.btn-action.cancel:hover, .cancel-btn:hover {
-  background-color: #dc2626;
-}
-
-.btn-action.secondary {
-  background-color: #f1f5f9;
-  color: #475569;
-  border: 1px solid #cbd5e1;
-}
-
-.btn-action.secondary:hover {
-  background-color: #e2e8f0;
-  color: #1e293b;
-}
-
-.btn-action.waitlist {
-  background-color: #d97706;
-  color: #ffffff;
-}
-
-.btn-action.waitlist:hover {
-  background-color: #b45309;
-}
-
-.btn-waitlist-full {
-  width: 100%;
-  background: #f59e0b;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-  transition: background-color 0.2s ease;
-  box-sizing: border-box;
-}
-
-.btn-waitlist-full:hover {
-  background: #d97706;
-}
-
-.train-card .status-msg {
-  padding: 8px 12px;
-  font-size: 12px;
-  border-radius: 6px;
-  margin-top: 4px;
-  box-sizing: border-box;
-}
-
-/* Responsive grid layout adjustments */
-@media (min-width: 1200px) {
-  .train-cards-container {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
-  }
-}
-
-@media (max-width: 1199px) and (min-width: 768px) {
-  .train-cards-container {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-  }
-}
-
-@media (max-width: 767px) {
-  .train-cards-container {
-    grid-template-columns: 1fr;
-    gap: 18px;
-  }
-  .global-cancel-form {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .global-cancel-input {
-    max-width: 100%;
-  }
-  .train-card {
-    padding: 16px;
-  }
-  .seat-grid {
-    grid-template-columns: repeat(5, minmax(46px, 58px));
-    gap: 6px;
-  }
+.btn-action.cancel:hover {
+    background-color: #ef4444;
+    color: #ffffff;
 }
 
 /* Mini Terminal under card */
@@ -1241,135 +915,4 @@ body {
     .dashboard-grid, .reservation-trains-grid {
         grid-template-columns: 1fr;
     }
-}
-
-/* =========================================================================
-   Inline Status Messages & Notifications (Plain Styled, Light Background)
-   ========================================================================= */
-.status-msg {
-    padding: 0.6rem 0.85rem;
-    border-radius: var(--radius-sm);
-    font-family: var(--font-sans);
-    font-size: 0.85rem;
-    font-weight: 500;
-    line-height: 1.4;
-    margin-top: 0.5rem;
-    background-color: #f8fafc;
-    color: #0f172a;
-    border-left: 4px solid #94a3b8;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-    transition: opacity 0.3s ease, transform 0.2s ease;
-}
-
-.status-msg.success {
-    background-color: #ecfdf5;
-    color: #065f46;
-    border-left-color: #10b981;
-}
-
-.status-msg.warning, .status-msg.waitlist {
-    background-color: #fffbeb;
-    color: #92400e;
-    border-left-color: #f59e0b;
-}
-
-.status-msg.error, .status-msg.rejected {
-    background-color: #fef2f2;
-    color: #991b1b;
-    border-left-color: #ef4444;
-}
-
-.status-msg.info {
-    background-color: #eff6ff;
-    color: #1e40af;
-    border-left-color: #3b82f6;
-}
-
-/* Reassigned seat pulse / flash visual cue */
-@keyframes pulseReassign {
-    0% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.8);
-        border-color: #10b981;
-    }
-    50% {
-        transform: scale(1.08);
-        box-shadow: 0 0 16px 4px rgba(16, 185, 129, 0.9);
-        border-color: #34d399;
-        background-color: rgba(16, 185, 129, 0.35);
-    }
-    100% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-        border-color: var(--border-color);
-    }
-}
-
-.seat-box.reassigned-pulse {
-    animation: pulseReassign 1.8s ease-in-out !important;
-    z-index: 10;
-}
-
-/* Drag-and-Drop & Mode Toggle Styles for animation.html */
-.mode-toggle-group {
-    display: flex;
-    background-color: #0b0f19;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-}
-
-.btn-mode {
-    background: transparent;
-    color: var(--text-secondary);
-    border: none;
-    padding: 0.5rem 0.9rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-}
-
-.btn-mode:not(:last-child) {
-    border-right: 1px solid var(--border-color);
-}
-
-.btn-mode:hover {
-    color: #ffffff;
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.btn-mode.active {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    color: #ffffff;
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
-}
-
-.train-node.manual-draggable {
-    cursor: grab;
-}
-
-.train-node.manual-draggable:active {
-    cursor: grabbing;
-}
-
-@keyframes platformFlashRed {
-    0%, 100% { stroke: #38bdf8; fill: #131c2e; }
-    25%, 75% { stroke: #ef4444; fill: rgba(239, 68, 68, 0.4); }
-}
-
-.platform-lane.flash-red rect {
-    animation: platformFlashRed 1.2s ease-in-out;
-}
-
-.platform-drop-target {
-    cursor: pointer;
-}
-
-.platform-drop-target:hover rect {
-    stroke-width: 2.5;
-    stroke-dasharray: 4 2;
 }

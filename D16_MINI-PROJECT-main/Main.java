@@ -12,11 +12,11 @@
  *    - Confirm that the correct waiting passenger is automatically promoted
  *      and receives the newly available seat.
  *
- * 3. Test platform allocation & priority queue.
- *    - Request platform for Scheduled train (T001 -> PF-1).
- *    - Request platform for Emergency train (T005 -> PF-1/PF-2).
- *    - Delay a train and verify platform retention or re-queuing.
- *    - Depart a train and observe automatic promotion of waiting trains.
+ * 3. Test invalid reservation cancellation.
+ *    - Select Cancel Booking.
+ *    - Enter a reservation ID that does not exist.
+ *    - Confirm that a clean, friendly error message is displayed and the
+ *      application continues running.
  */
 
 import java.util.Collection;
@@ -25,17 +25,17 @@ import java.util.Scanner;
 
 /**
  * Main application class providing a console-based User Interface
- * for interacting with the Railway Reservation and Platform Allocation System.
+ * for interacting with the Railway Reservation System.
  *
- * Handles user input, menu presentation, and output formatting.
- * All domain logic is delegated to RailwaySystem, PlatformAllocationEngine, and DelayHandler.
+ * Handles only user input, menu presentation, and output formatting.
+ * All domain logic is delegated to RailwaySystem and underlying services.
  */
 public class Main {
 
     public static void main(String[] args) {
         RailwaySystem railwaySystem = new RailwaySystem();
 
-        // Pre-load 6 sample TrainService objects with capacity = 10, schedules, and priorities
+        // Pre-load exactly 6 sample TrainService objects with capacity = 10
         initializeSampleTrains(railwaySystem);
 
         Scanner scanner = new Scanner(System.in);
@@ -50,12 +50,12 @@ public class Main {
             try {
                 choice = Integer.parseInt(input);
             } catch (NumberFormatException e) {
-                System.out.println("Invalid input. Please enter a number from 1 to 12.\n");
+                System.out.println("Invalid input. Please enter a number from 1 to 6.\n");
                 continue;
             }
 
-            if (choice < 1 || choice > 12) {
-                System.out.println("Invalid choice. Please select an option from 1 to 12.\n");
+            if (choice < 1 || choice > 6) {
+                System.out.println("Invalid choice. Please select an option from 1 to 6.\n");
                 continue;
             }
 
@@ -65,15 +65,10 @@ public class Main {
                 case 3 -> cancelBooking(scanner, railwaySystem);
                 case 4 -> viewConfirmedReservations(scanner, railwaySystem);
                 case 5 -> viewWaitingList(scanner, railwaySystem);
-                case 6, 12 -> {
+                case 6 -> {
                     System.out.println("\nThank you for using Railway Reservation System.");
                     running = false;
                 }
-                case 7 -> requestPlatform(scanner, railwaySystem);
-                case 8 -> departTrain(scanner, railwaySystem);
-                case 9 -> delayTrain(scanner, railwaySystem);
-                case 10 -> viewPlatforms(railwaySystem);
-                case 11 -> viewPlatformWaitingQueue(railwaySystem);
             }
 
             if (running) {
@@ -89,29 +84,29 @@ public class Main {
      * realistic routes, train lengths between 200m and 500m, and declared priorities.
      */
     private static void initializeSampleTrains(RailwaySystem railwaySystem) {
-        TrainService train1 = new TrainService("12601", "Mangalore Mail", 10);
+        TrainService train1 = new TrainService("12601", "Mangalore Mail");
         train1.setSchedule("06:00", "06:15", 350, "SCHEDULED");
         railwaySystem.addTrain(train1);
 
-        TrainService train2 = new TrainService("12637", "Pandian Express", 10);
+        TrainService train2 = new TrainService("12637", "Pandian Express");
         train2.setSchedule("08:30", "08:45", 420, "SCHEDULED");
         railwaySystem.addTrain(train2);
 
-        TrainService train3 = new TrainService("12007", "Mysuru Shatabdi Express", 10);
+        TrainService train3 = new TrainService("12007", "Mysuru Shatabdi Express");
         train3.setSchedule("11:15", "11:25", 280, "SCHEDULED");
         railwaySystem.addTrain(train3);
 
-        TrainService train4 = new TrainService("20607", "Vande Bharat Express", 10);
+        TrainService train4 = new TrainService("20607", "Vande Bharat Express");
         train4.setSchedule("14:00", "14:10", 320, "SCHEDULED");
         railwaySystem.addTrain(train4);
 
         // Emergency relief train
-        TrainService train5 = new TrainService("99001", "Medical Relief Special", 10);
+        TrainService train5 = new TrainService("99001", "Medical Relief Special");
         train5.setSchedule("16:45", "17:00", 250, "EMERGENCY");
         railwaySystem.addTrain(train5);
 
         // Connecting feeder train
-        TrainService train6 = new TrainService("16127", "Guruvayur Connecting Express", 10);
+        TrainService train6 = new TrainService("16127", "Guruvayur Connecting Express");
         train6.setSchedule("19:30", "19:40", 380, "CONNECTING");
         railwaySystem.addTrain(train6);
     }
@@ -123,19 +118,12 @@ public class Main {
         System.out.println("========================================");
         System.out.println("       RAILWAY RESERVATION SYSTEM       ");
         System.out.println("========================================");
-        System.out.println("--- Reservation Menu ---");
         System.out.println("1. List all trains");
         System.out.println("2. Book a seat");
         System.out.println("3. Cancel a booking");
         System.out.println("4. View confirmed reservations");
         System.out.println("5. View waiting list");
-        System.out.println("--- Platform Management Menu ---");
-        System.out.println("7. Request platform for a train");
-        System.out.println("8. Depart a train");
-        System.out.println("9. Delay a train");
-        System.out.println("10. View all platforms and their current occupied intervals");
-        System.out.println("11. View current platform-waiting queue in priority order");
-        System.out.println("12. Exit (or enter 6)");
+        System.out.println("6. Exit");
         System.out.println("========================================");
     }
 
@@ -271,126 +259,6 @@ public class Main {
             System.out.println("Error: " + e.getMessage());
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Option 7: Requests platform allocation for a specified train.
-     */
-    private static void requestPlatform(Scanner scanner, RailwaySystem railwaySystem) {
-        try {
-            System.out.print("Enter train ID: ");
-            String trainId = scanner.nextLine().trim();
-
-            TrainService train = railwaySystem.getTrain(trainId);
-            System.out.printf("Train %s (%s) | Priority: %s | Length: %dm | Schedule: %s-%s%n",
-                    train.getTrainId(), train.getName(), train.getDeclaredPriority(),
-                    train.getTrainLength(), train.getArrivalTime(), train.getDepartureTime());
-
-            Platform platform = railwaySystem.requestPlatform(trainId);
-            if (platform != null) {
-                System.out.printf("ALLOCATED: Assigned to Platform %s (Length: %dm)%n",
-                        platform.getId(), platform.getLength());
-            } else {
-                System.out.println("No platform currently available. Added to waiting queue.");
-            }
-        } catch (IllegalArgumentException e) {
-            System.out.println("Error: " + e.getMessage());
-        } catch (Exception e) {
-            System.out.println("Error: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Option 8: Departs a train from its platform and triggers promotion of waiting trains.
-     */
-    private static void departTrain(Scanner scanner, RailwaySystem railwaySystem) {
-        try {
-            System.out.print("Enter train ID: ");
-            String trainId = scanner.nextLine().trim();
-
-            Platform currentPlatform = railwaySystem.getAssignedPlatform(trainId);
-            if (currentPlatform == null) {
-                System.out.printf("Train %s is not currently assigned to any platform.%n", trainId);
-                return;
-            }
-
-            railwaySystem.departTrain(trainId);
-        } catch (IllegalArgumentException e) {
-            System.out.println("Error: " + e.getMessage());
-        } catch (Exception e) {
-            System.out.println("Error: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Option 9: Delays a train to new arrival and departure times in HH:MM format.
-     */
-    private static void delayTrain(Scanner scanner, RailwaySystem railwaySystem) {
-        try {
-            System.out.print("Enter train ID: ");
-            String trainId = scanner.nextLine().trim();
-
-            System.out.print("Enter new arrival time (HH:MM): ");
-            String newArrival = scanner.nextLine().trim();
-
-            System.out.print("Enter new departure time (HH:MM): ");
-            String newDeparture = scanner.nextLine().trim();
-
-            railwaySystem.delayTrain(trainId, newArrival, newDeparture);
-        } catch (IllegalArgumentException e) {
-            System.out.println("Error: " + e.getMessage());
-        } catch (Exception e) {
-            System.out.println("Error: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Option 10: Displays all platforms and their currently occupied time intervals.
-     */
-    private static void viewPlatforms(RailwaySystem railwaySystem) {
-        List<Platform> platforms = railwaySystem.getPlatforms();
-        System.out.println("\nStation Platforms & Occupied Intervals:");
-        System.out.println("========================================");
-        for (Platform platform : platforms) {
-            System.out.printf("Platform: %s (Max Length: %dm)%n", platform.getId(), platform.getLength());
-            List<Interval> intervals = platform.getOccupiedIntervals();
-            if (intervals.isEmpty()) {
-                System.out.println("  Occupied Intervals: [Idle / Free]");
-            } else {
-                System.out.println("  Occupied Intervals:");
-                for (Interval inv : intervals) {
-                    System.out.printf("    - %s%n", inv);
-                }
-            }
-            System.out.println("----------------------------------------");
-        }
-    }
-
-    /**
-     * Option 11: Displays the platform waiting queue in deterministic priority order.
-     */
-    private static void viewPlatformWaitingQueue(RailwaySystem railwaySystem) {
-        List<PlatformRequest> waitingSnapshot = railwaySystem.getAllocationEngine().getWaitingSnapshot();
-        System.out.println("\nPlatform Waiting Queue (Priority Order):");
-        System.out.println("========================================");
-        if (waitingSnapshot.isEmpty()) {
-            System.out.println("Platform waiting queue is empty.");
-            return;
-        }
-
-        for (int i = 0; i < waitingSnapshot.size(); i++) {
-            PlatformRequest req = waitingSnapshot.get(i);
-            TrainService t = req.getTrain();
-            System.out.printf("%d. Train %s (%s) | Priority: %s (Rank %d) | Arr: %s, Dep: %s | Length: %dm%n",
-                    (i + 1),
-                    t.getTrainId(),
-                    t.getName(),
-                    t.getDeclaredPriority(),
-                    req.priorityRank(),
-                    t.getArrivalTime(),
-                    t.getDepartureTime(),
-                    t.getTrainLength());
         }
     }
 }
