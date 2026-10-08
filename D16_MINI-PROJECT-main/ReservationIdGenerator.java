@@ -1,31 +1,22 @@
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
- * ReservationIdGenerator generates sequential reservation identifiers
- * formatted with an 'R' prefix followed by a 3-digit zero-padded number.
- * Examples: R001, R002, ..., R010, R011, etc.
+ * Payanam Junction - Railway Reservation Prototype
+ *
+ * Generates sequential reservation IDs formatted with an 'R' prefix
+ * followed by a zero-padded integer (e.g., R001, R002, R003, ...).
  */
 public class ReservationIdGenerator {
 
-    /**
-     * Internal counter to track the sequence of reservation IDs.
-     * Initialized to 0 as required.
-     */
-    private int counter = 0;
+    /** Atomic counter ensuring thread-safe sequential ID generation starting from 0. */
+    private final AtomicInteger counter = new AtomicInteger(0);
 
     /**
-     * Default constructor for ReservationIdGenerator.
-     */
-    public ReservationIdGenerator() {
-        this.counter = 0;
-    }
-
-    /**
-     * Increments the internal counter and returns the next reservation ID
-     * in zero-padded format (e.g., R001, R002, R010).
+     * Generates and returns the next sequential reservation ID.
      *
-     * @return the next formatted reservation ID
+     * @return the next sequential reservation ID (e.g., "R001", "R002", "R003")
      */
     public String next() {
-        counter++;
-        return "R%03d".formatted(counter);
+        return String.format("R%03d", counter.incrementAndGet());
     }
 }
