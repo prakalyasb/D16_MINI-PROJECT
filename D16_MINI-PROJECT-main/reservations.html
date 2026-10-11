@@ -446,16 +446,32 @@
 
         // Cancellation Confirmation Handler by Passenger ID
         function handleConfirmCancelByPassengerId(trainId, passengerId, seatNumber) {
-            console.log("Cancelling booking for passenger ID:", passengerId, "on train:", trainId);
-
             if (!passengerId) {
-                console.error("handleConfirmCancelByPassengerId: No passengerId provided");
+                showStatus(trainId, "Passenger ID is required to cancel a booking.", "error");
                 return;
             }
 
             const train = window.railwaySystem.trains.get(trainId);
             if (!train) {
-                console.error(`Train ${trainId} not found`);
+                showStatus(trainId, `Train ${trainId} not found.`, "error");
+                return;
+            }
+
+            const enteredPassengerId = prompt("Enter the Passenger ID for this booking:");
+            if (enteredPassengerId === null) return;
+            if (enteredPassengerId.trim() !== passengerId) {
+                showStatus(trainId, "Passenger ID does not match this booking. Nothing was cancelled.", "error");
+                return;
+            }
+
+            const booking = train.seats.find(reservation =>
+                reservation && reservation.passenger.id === enteredPassengerId.trim());
+            if (!booking) {
+                showStatus(trainId, `No confirmed booking found for passenger ${enteredPassengerId.trim()}.`, "error");
+                return;
+            }
+            if (!confirm(`Cancel booking for ${booking.passenger.name} (${booking.passenger.id}) on ${train.name}, seat #${booking.seatNumber}?`)) {
+                showStatus(trainId, "Cancellation aborted. No booking was changed.", "info");
                 return;
             }
 
@@ -492,6 +508,18 @@
 
             if (!passengerId) {
                 if (statusEl) statusEl.innerHTML = `<div class="status-msg error">Please enter a Passenger ID (e.g. P001, P004)</div>`;
+                return;
+            }
+
+            const booking = Array.from(window.railwaySystem.trains.values())
+                .flatMap(train => train.seats.map(reservation => ({ train, reservation })))
+                .find(item => item.reservation && item.reservation.passenger.id === passengerId);
+            if (!booking) {
+                if (statusEl) statusEl.innerHTML = `<div class="status-msg error">No confirmed booking found for Passenger ID ${escapeHtml(passengerId)}.</div>`;
+                return;
+            }
+            if (!confirm(`Cancel booking for ${booking.reservation.passenger.name} (${passengerId}) on ${booking.train.name}, seat #${booking.reservation.seatNumber}?`)) {
+                if (statusEl) statusEl.innerHTML = `<div class="status-msg info">Cancellation aborted. No booking was changed.</div>`;
                 return;
             }
 

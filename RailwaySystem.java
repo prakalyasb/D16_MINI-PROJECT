@@ -151,6 +151,18 @@ public class RailwaySystem {
         return train.cancelBooking(reservationId, idGenerator);
     }
 
+    public Reservation findReservation(String trainId, String reservationId) {
+        if (reservationId == null || reservationId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Reservation ID cannot be empty");
+        }
+        for (Reservation reservation : getTrain(trainId).getConfirmedReservations()) {
+            if (reservationId.equals(reservation.getReservationId())) {
+                return reservation;
+            }
+        }
+        throw new IllegalArgumentException("Reservation not found on train " + trainId + ": " + reservationId);
+    }
+
     // =========================================================================
     // Platform Allocation & Delay Handling Methods
     // =========================================================================
