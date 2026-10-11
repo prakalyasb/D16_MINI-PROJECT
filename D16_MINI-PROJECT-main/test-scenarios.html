@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Scenarios - Payanam Junction</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .scenario-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:1rem; }
+        .scenario-card { display:flex; flex-direction:column; justify-content:space-between; gap:1rem; padding:1.1rem; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:var(--radius-md); }
+        .scenario-card h2 { margin:.5rem 0; font-size:1.05rem; }
+        .scenario-result { margin-top:1.25rem; padding:1rem; border-radius:var(--radius-md); background:var(--bg-secondary); border:1px solid var(--border-color); }
+        .scenario-result.pass { border-color:#15803d; }
+        .scenario-result.fail { border-color:#b91c1c; }
+        .scenario-step { padding:.4rem 0; color:var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <nav class="navbar"><div class="nav-container">
+        <a href="index.html" class="nav-brand"><span class="nav-logo-icon">🚄</span><div class="nav-brand-text"><span class="nav-brand-title">PAYANAM JUNCTION</span><span class="nav-brand-sub">Railway Reservation Prototype</span></div></a>
+        <ul class="nav-links"><li><a href="index.html" class="nav-link">Home</a></li><li><a href="reservations.html" class="nav-link">Reservations</a></li><li><a href="platform-allocation.html" class="nav-link">Platform Allocation</a></li><li><a href="test-scenarios.html" class="nav-link active">Test Scenarios</a></li><li><a href="animation.html" class="nav-link">Simulation</a></li></ul>
+        <div class="nav-actions"><button id="btnResetState" class="btn-reset">↺ Reset System</button></div>
+    </div></nav>
+    <main class="main-content">
+        <header class="page-header"><h1 class="page-title">Operational Test Scenarios</h1><p class="page-desc">Each scenario resets the shared platform engine, executes real system actions, and reports its assertions step by step.</p></header>
+        <section class="scenario-grid">
+            <article class="scenario-card"><div><span class="scenario-badge">TEST 1</span><h2>FIFO seat promotion</h2><p>Cancel a confirmed passenger and verify that the oldest waitlisted passenger receives the same seat.</p></div><button class="btn-scenario" data-scenario="seat">Run scenario</button></article>
+            <article class="scenario-card"><div><span class="scenario-badge">TEST 2</span><h2>Non-overlapping platforms</h2><p>Competing arrival windows must never overlap on the same physical platform.</p></div><button class="btn-scenario" data-scenario="overlap">Run scenario</button></article>
+            <article class="scenario-card"><div><span class="scenario-badge">TEST 3</span><h2>Overlong train rejection</h2><p>A 650m train must be rejected explicitly, not left waiting forever.</p></div><button class="btn-scenario" data-scenario="long">Run scenario</button></article>
+            <article class="scenario-card"><div><span class="scenario-badge">TEST 4</span><h2>Delay reallocation</h2><p>Extend an occupation and verify the train remains allocated or queued without double-booking.</p></div><button class="btn-scenario" data-scenario="delay">Run scenario</button></article>
+            <article class="scenario-card"><div><span class="scenario-badge">TEST 5</span><h2>Emergency promotion</h2><p>When a platform frees, the emergency request must precede a scheduled request.</p></div><button class="btn-scenario" data-scenario="priority">Run scenario</button></article>
+        </section>
+        <section id="scenarioResults" class="scenario-result" aria-live="polite"><strong>Results</strong><p>Select a scenario to run its checks.</p></section>
+    </main>
+    <footer class="footer"><div class="footer-container"><div>Payanam Junction • Mini-Project Team D16</div><div class="footer-tech">Vanilla HTML, CSS &amp; JavaScript</div></div></footer>
+    <script src="sim.js"></script>
+    <script>
+        const system = window.railwaySystem;
+        const results = document.getElementById("scenarioResults");
+        function startScenario() { return system.allocationEngine.resetPhase2(); }
+        function report(title, steps, passed) {
+            results.className = `scenario-result ${passed ? "pass" : "fail"}`;
+            results.innerHTML = `<strong>${passed ? "PASS" : "FAIL"} — ${title}</strong>${steps.map(step => `<div class="scenario-step">${step.passed ? "✓" : "✗"} ${step.text}</div>`).join("")}`;
+        }
+        function hasNoPlatformOverlaps() {
+            return system.allocationEngine.getStatus().platforms.every(platform => {
+                const intervals = platform.occupiedIntervals;
+                return intervals.every((interval, index) => intervals.slice(index + 1).every(other =>
+                    interval.startMin >= other.endMin || other.startMin >= interval.endMin
+                ));
+            });
+        }
+        const scenarios = {
+            seat() {
+                startScenario();
+                const train = system.trains.get("T001");
+                train.seats.fill(null);
+                train.waitingQueue = [];
+                for (let seat = 1; seat <= 10; seat++) {
+                    system.bookSeat("T001", `P${String(seat).padStart(3, "0")}`, `Passenger ${seat}`, seat);
+                }
+                system.joinWaitingList("T001", "P011", "Oldest waiter");
+                system.joinWaitingList("T001", "P012", "Next waiter");
+                const waitingBeforeCancel = train.waitingQueue.length;
+                const cancellation = system.cancelBookingByPassengerId("T001", "P004");
+                const confirmed = train.seats[3];
+                const promotedOldest = cancellation.ok && confirmed.passenger.id === "P011" && confirmed.seatNumber === 4;
+                report("Cancelled seat is reassigned FIFO", [
+                    { passed: train.isFull(), text: "Filled all 10 seat numbers individually." },
+                    { passed: waitingBeforeCancel === 2, text: "Added two passengers to the FIFO waiting list." },
+                    { passed: promotedOldest, text: `Cancelled P004; seat 4 now belongs to ${confirmed ? confirmed.passenger.id : "nobody"}.` }
+                ], promotedOldest);
+            },
+            overlap() {
+                startScenario();
+                const status = system.allocationEngine.getStatus();
+                const waitingWindowsClash = status.waitingQueue.length >= 2
+                    && status.waitingQueue.some(waiter => status.platforms.some(platform =>
+                        platform.occupiedIntervals.some(interval => interval.startMin < window.parseTimeToMinutes(waiter.departure) + 10
+                            && window.parseTimeToMinutes(waiter.arrival) < interval.endMin)
+                    ));
+                const valid = hasNoPlatformOverlaps();
+                report("Overlapping arrivals stay separated", [
+                    { passed: waitingWindowsClash, text: "Seeded arrivals compete for platforms during occupied windows." },
+                    { passed: valid, text: "No two actual occupied intervals overlap on a platform." }
+                ], waitingWindowsClash && valid);
+            },
+            long() {
+                startScenario();
+                const train = system.trains.get("T006");
+                const explicit = train.platformState === "REJECTED"
+                    && window.eventLog.some(line => line.includes("T006 rejected") && line.includes("650m"));
+                report("Overlong train is rejected", [
+                    { passed: train.length === 650, text: "T006 is longer than every platform." },
+                    { passed: explicit, text: "The engine records an explicit rejection message and does not queue it." }
+                ], explicit);
+            },
+            delay() {
+                startScenario();
+                const result = system.allocationEngine.delayTrain("T001", "08:30", "10:00");
+                const state = system.allocationEngine.getStatus().trains.find(train => train.id === "T001");
+                const valid = (state.state === "ASSIGNED" || state.state === "WAITING") && hasNoPlatformOverlaps();
+                report("Delayed occupation remains valid", [
+                    { passed: result.ok || result.queued, text: result.message },
+                    { passed: valid, text: `T001 ends ${state.state.toLowerCase()} and no platform is double-booked.` }
+                ], valid);
+            },
+            priority() {
+                startScenario();
+                const waitingBefore = system.allocationEngine.getStatus().waitingQueue.map(item => item.trainId);
+                const departure = system.allocationEngine.departTrain("T001");
+                const status = system.allocationEngine.getStatus();
+                const emergencyFirst = waitingBefore[0] === "T005"
+                    && status.trains.find(train => train.id === "T005").platformId === "PF-1"
+                    && status.trains.find(train => train.id === "T004").state === "WAITING";
+                report("Emergency precedes scheduled train", [
+                    { passed: waitingBefore[0] === "T005", text: `Before release, queue order is ${waitingBefore.join(", ")}.` },
+                    { passed: departure.ok && emergencyFirst, text: "After T001 departs, emergency T005 receives PF-1 before scheduled T004." }
+                ], emergencyFirst);
+            }
+        };
+        document.querySelectorAll("[data-scenario]").forEach(button => {
+            button.addEventListener("click", () => scenarios[button.dataset.scenario]());
+        });
+        document.getElementById("btnResetState").addEventListener("click", () => {
+            system.reset();
+            results.className = "scenario-result";
+            results.innerHTML = "<strong>System reset</strong><p>Seeded Phase 2 state restored.</p>";
+        });
+    </script>
+</body>
+</html>
