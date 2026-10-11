@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Station Animation - Payanam Junction</title>
+    <title>Simulation - Payanam Junction</title>
     <link rel="stylesheet" href="style.css">
     <style>
         /* Animation & Dispatcher Board Styles */
@@ -324,36 +324,52 @@
         .legend-color.emergency { background-color: #dc2626; }
         .legend-color.connecting { background-color: #d97706; }
         .legend-color.scheduled { background-color: #2563eb; }
+        .sim-tabs { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1rem; }
+        .sim-tab { border:1px solid var(--border-color); border-radius:var(--radius-sm); color:var(--text-secondary); background:var(--bg-secondary); padding:.65rem .9rem; cursor:pointer; }
+        .sim-tab.active { color:#fff; background:#2563eb; border-color:#3b82f6; }
+        .sim-panel { min-width:0; max-width:100%; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem; }
+        .sim-panel[hidden] { display:none; }
+        .sim-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; margin-bottom:1rem; }
+        .sim-toolbar label { display:flex; align-items:center; gap:.45rem; color:var(--text-secondary); }
+        .sim-toolbar select,.sim-toolbar input:not([type=checkbox]):not([type=range]) { padding:.5rem; color:var(--text-primary); background:#0b0f19; border:1px solid var(--border-color); border-radius:var(--radius-sm); }
+        .sim-timeline { min-width:0; max-width:100%; overflow:auto; }
+        .sim-scale { display:flex; justify-content:space-between; min-width:720px; margin:0 0 .3rem 92px; color:var(--text-muted); font:.65rem var(--font-mono); }
+        .sim-lanes { position:relative; min-width:812px; }
+        .sim-lane { position:relative; height:62px; margin-bottom:.35rem; border:1px solid var(--border-color); border-radius:6px; background:repeating-linear-gradient(90deg,#0b0f19 0,#0b0f19 calc(8.333% - 1px),#263247 calc(8.333% - 1px),#263247 8.333%); }
+        .sim-lane::before { content:attr(data-label); position:absolute; right:calc(100% + 9px); top:20px; width:80px; color:var(--text-secondary); font:600 .75rem var(--font-mono); text-align:right; }
+        .train-bar { position:absolute; top:8px; height:44px; min-width:7px; padding:5px; overflow:hidden; white-space:nowrap; border:1px solid #60a5fa; border-radius:5px; color:#fff; background:linear-gradient(100deg,#1d4ed8,#2563eb); font:600 .68rem var(--font-mono); touch-action:none; cursor:grab; z-index:2; }
+        .train-bar:active { cursor:grabbing; }
+        .train-bar.priority-emergency { border-color:#f87171; background:linear-gradient(100deg,#991b1b,#dc2626); }
+        .train-bar.priority-connecting { border-color:#fbbf24; background:linear-gradient(100deg,#92400e,#d97706); }
+        .train-bar.ghost { opacity:.68; border-style:dashed; background:rgba(147,51,234,.8); z-index:4; }
+        .train-bar.drag-valid { outline:2px solid #34d399; }
+        .train-bar.drag-invalid { outline:2px solid #f87171; }
+        .buffer-tail { position:absolute; right:0; top:0; bottom:0; width:18%; min-width:8px; background:repeating-linear-gradient(135deg,rgba(255,255,255,.12) 0 4px,rgba(255,255,255,.55) 4px 6px); pointer-events:none; }
+        .stage-list { display:flex; flex-wrap:wrap; gap:.5rem; min-height:56px; margin-top:.6rem; padding:.6rem; border:1px dashed var(--border-color); border-radius:6px; background:#0b0f19; }
+        .stage-chip { padding:.5rem .65rem; border:1px dashed #64748b; border-radius:5px; color:var(--text-secondary); background:#111827; cursor:grab; touch-action:none; }
+        .feedback { min-height:2.5rem; margin:.5rem 0; }
+        .clash-zone { position:absolute; top:1px; bottom:1px; z-index:3; pointer-events:none; background:rgba(220,38,38,.45); border-left:2px solid #ef4444; border-right:2px solid #ef4444; }
+        .clash-label { position:absolute; left:0; top:-18px; padding:2px 4px; color:#fecaca; background:#7f1d1d; border-radius:3px; font:600 .58rem var(--font-mono); white-space:nowrap; }
+        .clash-list { display:grid; gap:.5rem; margin-top:1rem; }
+        .clash-item { padding:.7rem; border-radius:6px; background:rgba(127,29,29,.25); border:1px solid #7f1d1d; color:#fecaca; }
+        .inline-fields { display:flex; flex-wrap:wrap; align-items:center; gap:.7rem; }
+        .seat-grid { display:grid; grid-template-columns:repeat(5,minmax(64px,1fr)); gap:.5rem; max-width:540px; margin:1rem 0; }
+        .seat-box { min-height:60px; border:1px solid var(--border-color); border-radius:6px; display:grid; place-items:center; color:var(--text-muted); background:#0b0f19; font:.72rem var(--font-mono); overflow-wrap:anywhere; }
+        .seat-box.booked { color:#bbf7d0; border-color:#15803d; background:rgba(21,128,61,.2); }
+        .seat-box.seat-promoted { animation:seat-promotion .8s ease-out; }
+        @keyframes seat-promotion { 0% { transform:translateY(20px) scale(.85); background:#facc15; } 100% { transform:translateY(0) scale(1); background:rgba(21,128,61,.2); } }
+        .event-feed { max-height:300px; overflow:auto; display:grid; gap:.35rem; padding:0; list-style:none; }
+        .event-feed li { padding:.5rem .65rem; color:var(--text-secondary); border-left:3px solid #38bdf8; background:#0b0f19; font-size:.82rem; }
+        .clock { color:#67e8f9; font:800 1.25rem var(--font-mono); }
+        @media(max-width:600px) { .seat-grid { grid-template-columns:repeat(5,minmax(50px,1fr)); } .sim-panel { padding:.75rem; } }
     </style>
 </head>
 <body>
-
-    <!-- Top Navigation Bar -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="index.html" class="nav-brand">
-                <span class="nav-logo-icon">🚄</span>
-                <div class="nav-brand-text">
-                    <span class="nav-brand-title">PAYANAM JUNCTION</span>
-                    <span class="nav-brand-sub">Railway Reservation Prototype</span>
-                </div>
-            </a>
-            <ul class="nav-links">
-                <li><a href="index.html" class="nav-link">Home</a></li>
-                <li><a href="reservations.html" class="nav-link">Reservations</a></li>
-                <li><a href="platform-allocation.html" class="nav-link">Platform Allocation</a></li>
-                <li><a href="test-scenarios.html" class="nav-link">Test Scenarios</a></li>
-                <li><a href="animation.html" class="nav-link active">Animation</a></li>
-            </ul>
-            <div class="nav-actions">
-                <button id="btnResetState" class="btn-reset" title="Reset all trains to empty state">
-                    <span>↺</span> Reset System
-                </button>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Main Content -->
+    <nav class="navbar"><div class="nav-container">
+        <a href="index.html" class="nav-brand"><span class="nav-logo-icon">🚄</span><div class="nav-brand-text"><span class="nav-brand-title">PAYANAM JUNCTION</span><span class="nav-brand-sub">Railway Reservation Prototype</span></div></a>
+        <ul class="nav-links"><li><a href="index.html" class="nav-link">Home</a></li><li><a href="reservations.html" class="nav-link">Reservations</a></li><li><a href="platform-allocation.html" class="nav-link">Platform Allocation</a></li><li><a href="test-scenarios.html" class="nav-link">Test Scenarios</a></li><li><a href="animation.html" class="nav-link active">Simulation</a></li></ul>
+        <div class="nav-actions"><button id="btnResetState" class="btn-reset">↺ Reset System</button></div>
+    </div></nav>
     <main class="main-content">
         <header class="page-header">
             <h1 class="page-title">Real-Time Station Dispatcher &amp; Platform Animation</h1>
@@ -559,7 +575,32 @@
                 <div class="legend-item" style="margin-left: 0.5rem;">
                     <span style="color: #38bdf8; font-size: 0.72rem;">Timeline: 00:00–24:00 (1m ≈ 0.76px, 5m snap)</span>
                 </div>
+        <header class="page-header"><h1 class="page-title">Shared Railway Simulation</h1><p class="page-desc">Every tab reads and updates the same reservation and platform engine. Drag trains on the timeline to preview a 5-minute-snapped move; rejected moves show the exact constraint and snap back.</p></header>
+        <div class="sim-tabs" role="tablist">
+            <button class="sim-tab active" data-tab="track" role="tab">Track</button>
+            <button class="sim-tab" data-tab="overlap" role="tab">Overlap Viewer</button>
+            <button class="sim-tab" data-tab="delay" role="tab">Delay what-if</button>
+            <button class="sim-tab" data-tab="seats" role="tab">Seat promotion</button>
+            <button class="sim-tab" data-tab="autoplay" role="tab">Auto-play</button>
+        </div>
+        <section class="sim-panel" id="panel-track" role="tabpanel">
+            <div class="sim-toolbar"><strong>Track — manual placement</strong><span>Drag a train bar between platform rows or along time. Times snap to 5 minutes.</span></div>
+            <div id="trackFeedback" class="feedback" aria-live="polite"></div>
+            <div class="sim-timeline"><div class="sim-scale"><span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>24:00</span></div><div id="trackLanes" class="sim-lanes"></div></div>
+            <p class="train-detail-label">Waiting / unassigned trains</p><div id="trackStaging" class="stage-list"></div>
+        </section>
+        <section class="sim-panel" id="panel-overlap" role="tabpanel" hidden>
+            <div class="sim-toolbar">
+                <strong>Overlap Viewer</strong>
+                <label><input id="bufferToggle" type="checkbox" checked> with buffer / without buffer</label>
+                <label>Ghost train <select id="ghostTrain"></select></label>
+                <label>Ghost platform <select id="ghostPlatform"><option>PF-1</option><option>PF-2</option><option>PF-3</option></select></label>
+                <label><input id="whatIfToggle" type="checkbox" checked> what-if mode</label>
             </div>
+            <p>Bars show actual assignments. A ghost is a non-committing what-if copy; drag it to test a different time or platform. Hatched tails show the clearance buffer.</p>
+            <div id="overlapFeedback" class="feedback" aria-live="polite"></div>
+            <div class="sim-timeline"><div class="sim-scale"><span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>24:00</span></div><div id="overlapLanes" class="sim-lanes"></div></div>
+            <div id="conflictList" class="clash-list"></div>
         </section>
 
     </main>
@@ -1325,21 +1366,288 @@
                 isPlaying = false;
                 updatePlayButtonUI();
                 showStatusBanner(`Dispatcher sequence finished at ${document.getElementById("clockReadout").textContent}.`, "success");
+        <section class="sim-panel" id="panel-delay" role="tabpanel" hidden>
+            <div class="sim-toolbar"><strong>Delay what-if</strong><label>Train <select id="delayTrain"></select></label><label>Delay <input id="delaySlider" type="range" min="0" max="120" value="0"><output id="delayValue">0 min</output></label><button id="commitDelay" class="btn-action">Commit delay</button></div>
+            <div id="delayFeedback" class="feedback" aria-live="polite"></div><div id="delaySummary" class="status-msg info"></div>
+        </section>
+        <section class="sim-panel" id="panel-seats" role="tabpanel" hidden>
+            <div class="sim-toolbar"><strong>Seat promotion</strong><label>Train <select id="seatTrain"></select></label><button id="prepareSeats" class="btn-action">Fill seats and add waiters</button></div>
+            <p>Cancel by passenger ID. The oldest waitlisted passenger is promoted into the exact freed seat.</p>
+            <div class="inline-fields"><label for="cancelPassenger">Passenger ID</label><input id="cancelPassenger" placeholder="e.g. P004"><button id="cancelByPassenger" class="btn-action">Cancel booking</button></div>
+            <div id="seatFeedback" class="feedback" aria-live="polite"></div><div id="seatGrid" class="seat-grid"></div>
+        </section>
+        <section class="sim-panel" id="panel-autoplay" role="tabpanel" hidden>
+            <div class="sim-toolbar"><strong>Auto-play — real engine actions</strong><button id="playAuto" class="btn-action">▶ Play</button><div class="speed-group"><button class="btn-speed active" data-speed="1">1x</button><button class="btn-speed" data-speed="5">5x</button><button class="btn-speed" data-speed="20">20x</button></div><button id="resetAuto" class="btn-reset">↺ Reset</button><span>Simulated clock <strong id="simClock" class="clock">08:30</strong></span></div>
+            <div id="autoFeedback" class="feedback"></div><h2 class="section-title">Event timeline</h2><ol id="eventTimeline" class="event-feed"></ol>
+        </section>
+    </main>
+    <footer class="footer"><div class="footer-container"><div>Payanam Junction • Mini-Project Team D16</div><div class="footer-tech">Vanilla HTML, CSS &amp; JavaScript</div></div></footer>
+    <script src="sim.js"></script>
+    <script>
+        const system = window.railwaySystem;
+        const engine = system.allocationEngine;
+        let withBuffer = true;
+        let ghostSchedule = null;
+        let ghostFeedbackMessage = "";
+        let dragState = null;
+        let playTimer = null;
+        let playSpeed = 1;
+        let playStep = 0;
+        let simulatedMinute = 510;
+        const trainById = id => system.trains.get(id);
+        const toMinute = value => window.parseTimeToMinutes(value);
+        const fromMinute = value => window.minutesToTime(value);
+        const statusMessage = (id, result) => {
+            const element = document.getElementById(id);
+            const style = result.rejected || !result.ok && !result.queued ? "error" : result.queued ? "warning" : result.ok ? "success" : "info";
+            const message = result.message || result.reason || (result.ok ? "Action completed." : "The action could not be completed.");
+            const banner = document.createElement("div");
+            banner.className = `status-msg ${style}`;
+            banner.textContent = message;
+            element.replaceChildren(banner);
+        };
+        const trains = () => system.listAllTrains();
+        const priorityClass = priority => priority === "EMERGENCY" ? "priority-emergency" : priority === "CONNECTING" ? "priority-connecting" : "";
+        const leftPercent = minute => minute / 1440 * 100;
+
+        function makeBar(train, start, end, platformId, ghost = false, buffer = true) {
+            const serviceDuration = Math.max(5, end - start);
+            const duration = serviceDuration + (buffer ? engine.bufferMinutes : 0);
+            const width = duration / 1440 * 100;
+            const trainBar = document.createElement("div");
+            trainBar.className = `train-bar ${priorityClass(train.priority)}${ghost ? " ghost" : ""}`;
+            trainBar.dataset.trainId = train.id;
+            trainBar.dataset.platformId = platformId;
+            trainBar.dataset.start = String(start);
+            trainBar.dataset.end = String(end);
+            trainBar.dataset.ghost = String(ghost);
+            trainBar.style.left = `${leftPercent(start)}%`;
+            trainBar.style.width = `${Math.max(width, .55)}%`;
+            trainBar.title = `${train.id} ${fromMinute(start)}-${fromMinute(end)}${buffer ? " + 10m clearance" : ""}`;
+            trainBar.textContent = `${train.id} ${fromMinute(start)}-${fromMinute(end)}`;
+            if (buffer) {
+                const tail = document.createElement("span");
+                tail.className = "buffer-tail";
+                tail.style.width = `${engine.bufferMinutes / duration * 100}%`;
+                trainBar.append(tail);
+            }
+            return trainBar;
+        }
+
+        function renderTrack() {
+            const status = engine.getStatus();
+            const lanes = document.getElementById("trackLanes");
+            lanes.innerHTML = "";
+            status.platforms.forEach(platform => {
+                const lane = document.createElement("div");
+                lane.className = "sim-lane";
+                lane.dataset.platform = platform.id;
+                lane.dataset.label = `${platform.id} · ${platform.length}m`;
+                platform.occupiedIntervals.forEach(interval => {
+                    const train = trainById(interval.trainId);
+                    if (train) lane.append(makeBar(train, interval.startMin, interval.endMin - 10, platform.id));
+                });
+                lanes.append(lane);
+            });
+            const queuedIds = new Set(status.waitingQueue.map(item => item.trainId));
+            document.getElementById("trackStaging").innerHTML = status.trains
+                .filter(train => !train.platformId)
+                .map(train => `<button type="button" class="stage-chip" data-train-id="${train.id}" data-start="${toMinute(train.arrival)}" data-end="${toMinute(train.departure)}">${train.id} · ${train.state}${queuedIds.has(train.id) ? ` #${status.waitingQueue.find(item => item.trainId === train.id).position}` : ""}</button>`).join("");
+            document.querySelectorAll(".stage-chip").forEach(chip => {
+                chip.addEventListener("pointerdown", event => startStageDrag(event, chip));
+            });
+        }
+
+        function calculateConflicts(platformId, start, end, trainId, bufferOn) {
+            const platform = engine.platforms.find(item => item.id === platformId);
+            const candidateEnd = end + (bufferOn ? engine.bufferMinutes : 0);
+            return platform.occupiedIntervals.filter(interval => interval.trainId !== trainId
+                && start < (bufferOn ? interval.endMin : toMinute(trainById(interval.trainId).departure))
+                && (bufferOn ? interval.startMin : toMinute(trainById(interval.trainId).arrival)) < candidateEnd)
+                .map(interval => ({
+                    trainId: interval.trainId,
+                    start: Math.max(start, bufferOn ? interval.startMin : toMinute(trainById(interval.trainId).arrival)),
+                    end: Math.min(candidateEnd, bufferOn ? interval.endMin : toMinute(trainById(interval.trainId).departure))
+                }));
+        }
+
+        function renderOverlap() {
+            withBuffer = document.getElementById("bufferToggle").checked;
+            const lanes = document.getElementById("overlapLanes");
+            const conflictList = document.getElementById("conflictList");
+            const status = engine.getStatus();
+            lanes.innerHTML = "";
+            const conflicts = [];
+            status.platforms.forEach(platform => {
+                const lane = document.createElement("div");
+                lane.className = "sim-lane";
+                lane.dataset.platform = platform.id;
+                lane.dataset.label = `${platform.id} · ${platform.length}m`;
+                platform.occupiedIntervals.forEach(interval => {
+                    const train = trainById(interval.trainId);
+                    if (!train) return;
+                    const end = toMinute(train.departure);
+                    lane.append(makeBar(train, interval.startMin, end, platform.id, false, withBuffer));
+                });
+                const ghostEnabled = document.getElementById("whatIfToggle").checked;
+                const ghostId = document.getElementById("ghostTrain").value;
+                const ghostPlatform = document.getElementById("ghostPlatform").value;
+                const ghostTrain = trainById(ghostId);
+                if (ghostEnabled && ghostTrain && ghostPlatform === platform.id) {
+                    const start = ghostSchedule?.trainId === ghostId ? ghostSchedule.start : toMinute(ghostTrain.arrival);
+                    const end = ghostSchedule?.trainId === ghostId ? ghostSchedule.end : toMinute(ghostTrain.departure);
+                    const overlaps = calculateConflicts(platform.id, start, end, ghostId, withBuffer);
+                    overlaps.forEach(conflict => conflicts.push({ platformId: platform.id, ghostId, ...conflict }));
+                    const ghost = makeBar(ghostTrain, start, end, platform.id, true, withBuffer);
+                    lane.append(ghost);
+                    overlaps.forEach(conflict => {
+                        const zone = document.createElement("div");
+                        zone.className = "clash-zone";
+                        zone.style.left = `${leftPercent(conflict.start)}%`;
+                        zone.style.width = `${Math.max((conflict.end - conflict.start) / 1440 * 100, .4)}%`;
+                        zone.title = `${ghostId} and ${conflict.trainId} clash ${fromMinute(conflict.start)}-${fromMinute(conflict.end)}`;
+                        const label = document.createElement("span");
+                        label.className = "clash-label";
+                        label.textContent = `${ghostId}/${conflict.trainId} ${fromMinute(conflict.start)}-${fromMinute(conflict.end)}`;
+                        zone.append(label);
+                        lane.append(zone);
+                    });
+                }
+                lanes.append(lane);
+            });
+            conflictList.innerHTML = conflicts.length
+                ? conflicts.map(conflict => {
+                    const ghostTrain = trainById(conflict.ghostId);
+                    let fix = null;
+                    for (const platform of engine.platforms) {
+                        if (platform.length < ghostTrain.length) continue;
+                        for (let start = toMinute(ghostTrain.arrival); start + (toMinute(ghostTrain.departure) - toMinute(ghostTrain.arrival)) <= 1440; start += 5) {
+                            const end = start + toMinute(ghostTrain.departure) - toMinute(ghostTrain.arrival);
+                            if (platform.isCompatible(ghostTrain.length, start, end, withBuffer ? engine.bufferMinutes : 0, ghostTrain.id).ok) {
+                                fix = { platform, start };
+                                break;
+                            }
+                        }
+                        if (fix) break;
+                    }
+                    return `<div class="clash-item">${conflict.ghostId} and ${conflict.trainId} clash ${fromMinute(conflict.start)}-${fromMinute(conflict.end)} on ${conflict.platformId}. ${fix ? `Try ${fix.platform.id} at ${fromMinute(fix.start)} (${fix.platform.length}m).` : "No compatible platform/time is free today."}</div>`;
+                }).join("")
+                : '<div class="status-msg success">No interval clashes on the displayed platforms.</div>';
+            document.getElementById("overlapFeedback").textContent = ghostFeedbackMessage
+                || (document.getElementById("whatIfToggle").checked
+                    ? "Ghost preview is not committed. Drag the purple bar to test a different position."
+                    : "What-if mode is off.");
+        }
+
+        function renderDelay() {
+            const train = trainById(document.getElementById("delayTrain").value);
+            if (!train) return;
+            const delay = Number(document.getElementById("delaySlider").value);
+            document.getElementById("delayValue").textContent = `${delay} min`;
+            const result = engine.previewDelay(train.id, toMinute(train.arrival) + delay, toMinute(train.departure) + delay);
+            document.getElementById("delaySummary").textContent = result.message;
+            document.getElementById("delayFeedback").textContent = `Current schedule ${train.arrival}-${train.departure}; preview ${fromMinute(toMinute(train.arrival) + delay)}-${fromMinute(toMinute(train.departure) + delay)}.`;
+        }
+
+        function renderSeats(highlightSeat = null) {
+            const train = trainById(document.getElementById("seatTrain").value);
+            if (!train) return;
+            document.getElementById("seatGrid").innerHTML = train.seats.map((reservation, index) => {
+                const highlight = highlightSeat === index + 1 ? " seat-promoted" : "";
+                return `<div class="seat-box ${reservation ? "booked" : ""}${highlight}">Seat ${index + 1}<br>${reservation ? reservation.passenger.name : "Free"}</div>`;
+            }).join("");
+        }
+
+        function renderEvents() {
+            document.getElementById("eventTimeline").innerHTML = window.eventLog.slice(-40).reverse()
+                .map(line => `<li>${line.replace(/[&<>"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char])}</li>`).join("");
+        }
+
+        function renderAll() {
+            const options = trains().map(train => `<option value="${train.id}">${train.id} — ${train.name}</option>`).join("");
+            ["ghostTrain", "delayTrain", "seatTrain"].forEach(id => {
+                const select = document.getElementById(id);
+                const previous = select.value;
+                select.innerHTML = options;
+                const fallback = id === "ghostTrain" ? "T004" : trains()[0]?.id;
+                select.value = previous && system.trains.has(previous) ? previous : fallback;
+            });
+            renderTrack();
+            renderOverlap();
+            if (!document.getElementById("panel-delay").hidden) renderDelay();
+            renderSeats();
+            renderEvents();
+        }
+
+        function targetLaneAt(x, y) {
+            return document.elementsFromPoint(x, y).map(element => element.closest(".sim-lane")).find(Boolean) || null;
+        }
+
+        function startStageDrag(event, chip) {
+            const train = trainById(chip.dataset.trainId);
+            if (!train) return;
+            dragState = { train, originalStart: Number(chip.dataset.start), originalEnd: Number(chip.dataset.end), originPlatform: null, element: chip, board: document.getElementById("trackLanes"), ghost: false, startX: event.clientX, startY: event.clientY };
+            chip.setPointerCapture(event.pointerId);
+            event.preventDefault();
+        }
+
+        document.addEventListener("pointerdown", event => {
+            const bar = event.target.closest(".train-bar");
+            if (!bar || dragState) return;
+            const train = trainById(bar.dataset.trainId);
+            if (!train) return;
+            const overlapGhost = bar.dataset.ghost === "true";
+            const start = overlapGhost && ghostSchedule?.trainId === train.id ? ghostSchedule.start : overlapGhost ? toMinute(train.arrival) : Number(bar.dataset.start);
+            const end = overlapGhost && ghostSchedule?.trainId === train.id ? ghostSchedule.end : overlapGhost ? toMinute(train.departure) : Number(bar.dataset.end);
+            dragState = { train, originalStart: start, originalEnd: end, originPlatform: bar.dataset.platformId, element: bar, board: bar.closest(".sim-lanes"), ghost: overlapGhost, startX: event.clientX, startY: event.clientY };
+            bar.setPointerCapture(event.pointerId);
+            event.preventDefault();
+        });
+        document.addEventListener("pointermove", event => {
+            if (!dragState) return;
+            const rect = dragState.board.getBoundingClientRect();
+            const width = dragState.board.querySelector(".sim-lane")?.getBoundingClientRect().width || rect.width;
+            const duration = dragState.originalEnd - dragState.originalStart;
+            const raw = dragState.originalStart + (event.clientX - dragState.startX) / width * 1440;
+            const candidateStart = Math.max(0, Math.min(1440 - duration, Math.round(raw / 5) * 5));
+            const candidateEnd = candidateStart + duration;
+            const lane = targetLaneAt(event.clientX, event.clientY);
+            const platformId = dragState.ghost ? (lane?.dataset.platform || document.getElementById("ghostPlatform").value) : lane?.dataset.platform;
+            const platform = engine.platforms.find(item => item.id === platformId);
+            const result = platform
+                ? platform.isCompatible(dragState.train.length, candidateStart, candidateEnd, dragState.ghost && !withBuffer ? 0 : engine.bufferMinutes, dragState.train.id)
+                : { ok: false, reason: "Drop the train on a platform row." };
+            dragState.candidate = { start: candidateStart, end: candidateEnd, platformId };
+            dragState.element.style.transform = `translate3d(${event.clientX - dragState.startX}px,${event.clientY - dragState.startY}px,0)`;
+            dragState.element.classList.toggle("drag-valid", result.ok);
+            dragState.element.classList.toggle("drag-invalid", !result.ok);
+            const feedbackId = dragState.ghost ? "overlapFeedback" : "trackFeedback";
+            document.getElementById(feedbackId).textContent = result.ok
+                ? `${dragState.train.id} fits ${platformId} ${fromMinute(candidateStart)}-${fromMinute(candidateEnd)} (5-minute snap).`
+                : `${dragState.train.id} rejected: ${result.reason}`;
+        });
+        document.addEventListener("pointerup", () => {
+            if (!dragState) return;
+            const current = dragState;
+            dragState = null;
+            if (!current.candidate?.platformId) {
+                renderAll();
                 return;
             }
-
-            const event = mockEventSequence[currentStepIndex];
-            processEvent(event);
-
-            currentStepIndex++;
-            document.getElementById("stepCounterPill").textContent = `Step: ${currentStepIndex} / ${mockEventSequence.length}`;
-
-            if (isPlaying && currentStepIndex < mockEventSequence.length) {
-                const stepDelay = Math.max(100, BASE_DELAY_MS / currentSpeed);
-                playbackTimer = setTimeout(executeNextStep, stepDelay);
-            } else if (currentStepIndex >= mockEventSequence.length) {
-                isPlaying = false;
-                updatePlayButtonUI();
+            const { start, end, platformId } = current.candidate;
+            if (current.ghost) {
+                const conflicts = calculateConflicts(platformId, start, end, current.train.id, withBuffer);
+                const message = conflicts.length
+                    ? `${current.train.id} clashes with ${conflicts.map(item => `${item.trainId} ${fromMinute(item.start)}-${fromMinute(item.end)}`).join("; ")}. Ghost was not committed.`
+                    : `${current.train.id} has no clash on ${platformId}. Ghost was not committed.`;
+                document.getElementById("overlapFeedback").textContent = message;
+                ghostFeedbackMessage = message;
+                window.eventLog.push(`WHAT-IF: ${message}`);
+                document.getElementById("ghostPlatform").value = platformId;
+                ghostSchedule = { trainId: current.train.id, start, end };
+                renderOverlap();
+                renderEvents();
+                return;
             }
         }
 
@@ -1348,7 +1656,16 @@
 
             if (timestamp) {
                 document.getElementById("clockReadout").textContent = timestamp;
+            const result = engine.moveTrain(current.train.id, platformId, start, end);
+            statusMessage("trackFeedback", result);
+            if (result.ok) {
+                renderAll();
+            } else {
+                current.element.style.transition = "transform 240ms ease";
+                current.element.style.transform = "translate3d(0,0,0)";
+                setTimeout(renderAll, 250);
             }
+        });
 
             const train = window.railwaySystem.trains.get(trainId);
             const trainName = train ? train.name : trainId;
@@ -1458,18 +1775,116 @@
                 const logLine = `${timestamp} &mdash; Train ${trainId} (${priority}) waitlisted &mdash; all platforms occupied / holding in siding`;
                 window.eventLog.push(`${timestamp} — Train ${trainId} (${priority}) waitlisted — all platforms occupied / holding in siding`);
                 showStatusBanner(logLine, "warning");
+        document.querySelectorAll(".sim-tab").forEach(tab => tab.addEventListener("click", () => {
+            document.querySelectorAll(".sim-tab").forEach(item => item.classList.toggle("active", item === tab));
+            document.querySelectorAll(".sim-panel").forEach(panel => { panel.hidden = panel.id !== `panel-${tab.dataset.tab}`; });
+            renderAll();
+        }));
+        const refreshGhost = () => {
+            ghostFeedbackMessage = "";
+            renderOverlap();
+        };
+        document.getElementById("bufferToggle").addEventListener("change", refreshGhost);
+        document.getElementById("whatIfToggle").addEventListener("change", refreshGhost);
+        document.getElementById("ghostTrain").addEventListener("change", refreshGhost);
+        document.getElementById("ghostPlatform").addEventListener("change", refreshGhost);
+        document.getElementById("delayTrain").addEventListener("change", renderDelay);
+        document.getElementById("delaySlider").addEventListener("input", renderDelay);
+        document.getElementById("commitDelay").addEventListener("click", () => {
+            const train = trainById(document.getElementById("delayTrain").value);
+            const delay = Number(document.getElementById("delaySlider").value);
+            const result = engine.delayTrain(train.id, toMinute(train.arrival) + delay, toMinute(train.departure) + delay);
+            statusMessage("delayFeedback", result);
+            renderAll();
+        });
+        document.getElementById("seatTrain").addEventListener("change", () => renderSeats());
+        document.getElementById("prepareSeats").addEventListener("click", () => {
+            const train = trainById(document.getElementById("seatTrain").value);
+            let nextId = 1;
+            train.seats.forEach((reservation, index) => {
+                if (!reservation) {
+                    while (train.seats.some(item => item?.passenger.id === `S${String(nextId).padStart(3, "0")}`)) nextId++;
+                    system.bookSeat(train.id, `S${String(nextId).padStart(3, "0")}`, `Seat passenger ${nextId}`, index + 1);
+                    nextId++;
+                }
+            });
+            if (!train.waitingQueue.length) {
+                system.joinWaitingList(train.id, "S011", "Oldest waiting passenger");
+                system.joinWaitingList(train.id, "S012", "Next waiting passenger");
             }
-        }
+            document.getElementById("cancelPassenger").value = train.seats.find(Boolean)?.passenger.id || "";
+            statusMessage("seatFeedback", { ok: true, message: `${train.id} seats prepared with two waitlisted passengers.` });
+            renderSeats();
+            renderEvents();
+        });
+        document.getElementById("cancelByPassenger").addEventListener("click", () => {
+            const trainId = document.getElementById("seatTrain").value;
+            const result = system.cancelBookingByPassengerId(trainId, document.getElementById("cancelPassenger").value.trim());
+            const promotion = result.promoted ? `; ${result.promoted.passenger.name} promoted to seat ${result.promoted.seatNumber}` : "";
+            statusMessage("seatFeedback", { ...result, message: result.ok ? `Cancelled seat ${result.cancelledSeat}${promotion}.` : result.reason });
+            renderSeats(result.ok ? result.cancelledSeat : null);
+            renderEvents();
+        });
 
-        function truncate(str, maxLen) {
-            if (!str) return "";
-            return str.length > maxLen ? str.slice(0, maxLen - 1) + "…" : str;
+        const autoSteps = [
+            () => engine.departTrain("T001"),
+            () => engine.departTrain("T002"),
+            () => engine.delayTrain("T003", "08:45", "09:15")
+        ];
+        function runAutoStep() {
+            if (playStep >= autoSteps.length) {
+                clearInterval(playTimer);
+                playTimer = null;
+                document.getElementById("playAuto").textContent = "▶ Play";
+                document.getElementById("autoFeedback").textContent = "Sequence complete.";
+                return;
+            }
+            const result = autoSteps[playStep++]();
+            simulatedMinute += 10;
+            document.getElementById("simClock").textContent = fromMinute(simulatedMinute);
+            statusMessage("autoFeedback", result);
+            renderAll();
         }
-
-        function escapeXml(str) {
-            if (!str) return "";
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
+        document.getElementById("playAuto").addEventListener("click", () => {
+            if (playTimer) {
+                clearInterval(playTimer);
+                playTimer = null;
+                document.getElementById("playAuto").textContent = "▶ Play";
+                return;
+            }
+            document.getElementById("playAuto").textContent = "⏸ Pause";
+            runAutoStep();
+            if (playStep < autoSteps.length) playTimer = setInterval(runAutoStep, 1200 / playSpeed);
+        });
+        document.querySelectorAll("[data-speed]").forEach(button => button.addEventListener("click", () => {
+            playSpeed = Number(button.dataset.speed);
+            document.querySelectorAll("[data-speed]").forEach(item => item.classList.toggle("active", item === button));
+            if (playTimer) {
+                clearInterval(playTimer);
+                playTimer = setInterval(runAutoStep, 1200 / playSpeed);
+            }
+        }));
+        document.getElementById("resetAuto").addEventListener("click", () => {
+            if (playTimer) clearInterval(playTimer);
+            playTimer = null;
+            playStep = 0;
+            simulatedMinute = 510;
+            system.reset();
+            document.getElementById("playAuto").textContent = "▶ Play";
+            document.getElementById("simClock").textContent = fromMinute(simulatedMinute);
+            renderAll();
+        });
+        document.getElementById("btnResetState").addEventListener("click", () => {
+            if (playTimer) clearInterval(playTimer);
+            playTimer = null;
+            system.reset();
+            playStep = 0;
+            simulatedMinute = 510;
+            document.getElementById("playAuto").textContent = "▶ Play";
+            document.getElementById("simClock").textContent = fromMinute(simulatedMinute);
+            renderAll();
+        });
+        renderAll();
     </script>
 </body>
 </html>

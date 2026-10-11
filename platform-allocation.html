@@ -5,35 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Platform Allocation - Payanam Junction</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .allocation-controls { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1rem; margin:1.25rem 0; }
+        .allocation-control,.platform-card,.queue-panel { background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem; }
+        .allocation-control { display:grid; gap:.65rem; align-content:start; }
+        .allocation-control label { color:var(--text-secondary); font-size:.85rem; }
+        .allocation-control select,.allocation-control input { width:100%; padding:.55rem; color:var(--text-primary); background:#0b0f19; border:1px solid var(--border-color); border-radius:var(--radius-sm); }
+        .platform-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1rem; }
+        .platform-card h2 { margin:0 0 .25rem; font-size:1rem; }
+        .timeline { position:relative; height:62px; margin-top:.85rem; border-radius:6px; background:repeating-linear-gradient(90deg,#0b0f19 0,#0b0f19 calc(16.666% - 1px),#263247 calc(16.666% - 1px),#263247 16.666%); overflow:hidden; }
+        .timeline-bar { position:absolute; top:8px; height:44px; min-width:5px; border-radius:5px; padding:5px; color:#fff; font:600 .7rem var(--font-mono); white-space:nowrap; overflow:hidden; background:#2563eb; }
+        .timeline-bar .buffer-tail { position:absolute; inset:0 0 0 auto; width:25%; min-width:8px; background:repeating-linear-gradient(135deg,rgba(255,255,255,.1) 0 4px,rgba(255,255,255,.42) 4px 6px); }
+        .time-labels { display:flex; justify-content:space-between; color:var(--text-muted); font:.65rem var(--font-mono); margin-top:.25rem; }
+        .queue-panel { margin-top:1.25rem; }
+        .queue-row { display:flex; justify-content:space-between; gap:.75rem; align-items:center; padding:.65rem 0; border-bottom:1px solid var(--border-subtle); }
+        .queue-row:last-child { border-bottom:0; }
+        .priority-badge.emergency { color:#fca5a5; border-color:#7f1d1d; background:#450a0a; }
+        .priority-badge.connecting { color:#fcd34d; border-color:#854d0e; background:#451a03; }
+        .priority-badge.scheduled { color:#93c5fd; border-color:#1e40af; background:#172554; }
+        .action-result { margin-top:1rem; }
+        @media (max-width:520px) { .queue-row { align-items:flex-start; flex-direction:column; } }
+    </style>
 </head>
 <body>
-
-    <!-- Top Navigation Bar -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="index.html" class="nav-brand">
-                <span class="nav-logo-icon">🚄</span>
-                <div class="nav-brand-text">
-                    <span class="nav-brand-title">PAYANAM JUNCTION</span>
-                    <span class="nav-brand-sub">Railway Reservation Prototype</span>
-                </div>
-            </a>
-            <ul class="nav-links">
-                <li><a href="index.html" class="nav-link">Home</a></li>
-                <li><a href="reservations.html" class="nav-link">Reservations</a></li>
-                <li><a href="platform-allocation.html" class="nav-link active">Platform Allocation</a></li>
-                <li><a href="test-scenarios.html" class="nav-link">Test Scenarios</a></li>
-                <li><a href="animation.html" class="nav-link">Animation</a></li>
-            </ul>
-            <div class="nav-actions">
-                <button id="btnResetState" class="btn-reset" title="Reset all trains to empty state">
-                    <span>↺</span> Reset System
-                </button>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Main Content -->
+    <nav class="navbar"><div class="nav-container">
+        <a href="index.html" class="nav-brand"><span class="nav-logo-icon">🚄</span><div class="nav-brand-text"><span class="nav-brand-title">PAYANAM JUNCTION</span><span class="nav-brand-sub">Railway Reservation Prototype</span></div></a>
+        <ul class="nav-links">
+            <li><a href="index.html" class="nav-link">Home</a></li><li><a href="reservations.html" class="nav-link">Reservations</a></li><li><a href="platform-allocation.html" class="nav-link active">Platform Allocation</a></li><li><a href="test-scenarios.html" class="nav-link">Test Scenarios</a></li><li><a href="animation.html" class="nav-link">Simulation</a></li>
+        </ul>
+        <div class="nav-actions"><button id="btnResetState" class="btn-reset">↺ Reset System</button></div>
+    </div></nav>
     <main class="main-content">
         <header class="page-header">
             <h1 class="page-title">Station Platform Allocation &amp; Track Constraints</h1>
@@ -108,41 +109,84 @@
             const trains = window.railwaySystem.listAllTrains();
             const tbody = document.getElementById("platformsTableBody");
             tbody.innerHTML = "";
+        <header class="page-header"><h1 class="page-title">Station Platform Allocation</h1><p class="page-desc">Three platforms (300m, 400m, 500m), best-fit allocation, half-open occupancy intervals, and a 10-minute clearance buffer. Occupied trains are never displaced.</p></header>
+        <section class="allocation-controls">
+            <form id="requestForm" class="allocation-control"><strong>Request a platform</strong><label for="requestTrain">Train</label><select id="requestTrain"></select><button class="btn-action" type="submit">Request platform</button></form>
+            <form id="departForm" class="allocation-control"><strong>Depart a train</strong><label for="departTrain">Train holding a platform</label><select id="departTrain"></select><button class="btn-action" type="submit">Depart and retry queue</button></form>
+            <form id="delayForm" class="allocation-control"><strong>Delay a train</strong><label for="delayTrain">Train</label><select id="delayTrain"></select><label for="delayMinutes">Delay (minutes)</label><input id="delayMinutes" type="number" min="1" max="720" value="15" required><button class="btn-action" type="submit">Apply delay</button></form>
+        </section>
+        <div id="platformActionResult" class="action-result" aria-live="polite"></div>
+        <section><h2 class="section-title">Platform timelines</h2><div id="platformCards" class="platform-grid"></div></section>
+        <section id="platformQueuePanel" class="queue-panel"><h2 class="section-title">Platform waiting queue</h2><div id="platformQueue"></div></section>
+    </main>
+    <footer class="footer"><div class="footer-container"><div>Payanam Junction • Mini-Project Team D16</div><div class="footer-tech">Vanilla HTML, CSS &amp; JavaScript</div></div></footer>
+    <script src="sim.js"></script>
+    <script>
+        const system = window.railwaySystem;
+        const engine = system.allocationEngine;
+        const resultEl = document.getElementById("platformActionResult");
+        const clockMinute = value => window.parseTimeToMinutes(value);
 
-            platforms.forEach(pf => {
-                // Determine which trains physically fit on this platform
-                const fittingTrains = trains
-                    .filter(t => t.length <= pf.length)
-                    .map(t => `<span class="train-id-badge" style="font-size:0.75rem; padding:0.1rem 0.35rem; margin-right:4px;">${t.id} (${t.length}m)</span>`)
-                    .join(" ");
-
-                const intervalsDisplay = pf.occupiedIntervals.length === 0
-                    ? '<span style="color: var(--text-muted); font-family: var(--font-mono); font-size: 0.85rem;">[ ] (Empty / Free)</span>'
-                    : pf.occupiedIntervals.map(inv => `[${inv.start} - ${inv.end}: ${inv.trainId}]`).join(", ");
-
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td>
-                        <strong style="color: #60a5fa; font-family: var(--font-mono); font-size: 1rem;">${pf.id}</strong>
-                    </td>
-                    <td>
-                        <span style="font-family: var(--font-mono); font-weight: 600; color: #f8fafc;">${pf.length} meters</span>
-                    </td>
-                    <td>
-                        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                            ${fittingTrains}
-                        </div>
-                    </td>
-                    <td>${intervalsDisplay}</td>
-                    <td>
-                        <span class="priority-badge scheduled" style="color: #34d399; border-color: rgba(52, 211, 153, 0.3); background: rgba(52, 211, 153, 0.1);">
-                            READY / IDLE
-                        </span>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+        function showResult(result) {
+            const className = result.rejected ? "error" : result.queued ? "warning" : result.ok ? "success" : "error";
+            resultEl.innerHTML = `<div class="status-msg ${className}">${result.message}</div>`;
+            render();
         }
+
+        function render() {
+            const status = engine.getStatus();
+            const trains = system.listAllTrains();
+            const trainOptions = trains.map(train => `<option value="${train.id}">${train.id} — ${train.name}</option>`).join("");
+            document.getElementById("requestTrain").innerHTML = trainOptions;
+            document.getElementById("delayTrain").innerHTML = trainOptions;
+            const assigned = status.trains.filter(train => train.platformId);
+            document.getElementById("departTrain").innerHTML = assigned.length
+                ? assigned.map(train => `<option value="${train.id}">${train.id} — ${train.platformId}</option>`).join("")
+                : '<option value="">No train currently assigned</option>';
+
+            document.getElementById("platformCards").innerHTML = status.platforms.map(platform => `
+                <article class="platform-card">
+                    <h2>${platform.id} <span class="train-detail-val">${platform.length}m</span></h2>
+                    <div class="timeline" aria-label="${platform.id} 24-hour schedule">
+                        ${platform.occupiedIntervals.map(interval => {
+                            const start = interval.startMin / 1440 * 100;
+                            const width = (interval.endMin - interval.startMin) / 1440 * 100;
+                            return `<div class="timeline-bar" style="left:${start}%;width:${Math.max(width,1)}%">${interval.trainId} ${window.minutesToTime(interval.startMin)}-${window.minutesToTime(interval.endMin)}<span class="buffer-tail" title="10-minute clearance buffer"></span></div>`;
+                        }).join("")}
+                    </div>
+                    <div class="time-labels"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+                    <p class="train-detail-label">${platform.occupiedIntervals.length} occupied interval(s)</p>
+                </article>`).join("");
+
+            document.getElementById("platformQueue").innerHTML = status.waitingQueue.length
+                ? status.waitingQueue.map(item => `<div class="queue-row"><span><strong>#${item.position} ${item.trainId}</strong> · ${item.arrival}–${item.departure}</span><span class="priority-badge ${item.priority.toLowerCase()}">${item.priority}</span></div>`).join("")
+                : '<div class="status-msg info">No trains are waiting for a platform.</div>';
+        }
+
+        document.getElementById("requestForm").addEventListener("submit", event => {
+            event.preventDefault();
+            showResult(engine.requestPlatform(document.getElementById("requestTrain").value));
+        });
+        document.getElementById("departForm").addEventListener("submit", event => {
+            event.preventDefault();
+            const trainId = document.getElementById("departTrain").value;
+            if (trainId) showResult(engine.departTrain(trainId));
+        });
+        document.getElementById("delayForm").addEventListener("submit", event => {
+            event.preventDefault();
+            const train = system.trains.get(document.getElementById("delayTrain").value);
+            const delay = Number(document.getElementById("delayMinutes").value);
+            if (!train || !Number.isInteger(delay) || delay < 1) return;
+            const arrival = clockMinute(train.arrival) + delay;
+            const departure = clockMinute(train.departure) + delay;
+            showResult(engine.delayTrain(train.id, arrival, departure));
+        });
+        document.getElementById("btnResetState").addEventListener("click", () => {
+            system.reset();
+            resultEl.innerHTML = '<div class="status-msg info">System reset to the seeded Phase 2 scenario.</div>';
+            render();
+        });
+        render();
     </script>
 </body>
 </html>
