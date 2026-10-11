@@ -1,4 +1,11 @@
 /**
+ * Payanam Junction - Railway Reservation System
+ * Platform Allocation Module
+ *
+ * Represents an emergency train arrival request (e.g., Medical Relief Special,
+ * accident relief train, VIP emergency diversion).
+ *
+ * Priority Rank: 0 (Highest priority, preempts all other platform requests).
  * Payanam Junction - Platform Allocation Subsystem
  *
  * Represents an emergency train arrival request (e.g., Medical Relief Special,
@@ -9,6 +16,9 @@
 public class EmergencyArrival extends PlatformRequest {
 
     /**
+     * Constructs a new EmergencyArrival request for the given train.
+     *
+     * @param train the TrainService requesting emergency platform allocation; must not be null
      * Constructs a new EmergencyArrival request.
      *
      * @param train the TrainService requiring emergency allocation; must not be null
@@ -18,6 +28,8 @@ public class EmergencyArrival extends PlatformRequest {
     }
 
     /**
+     * Returns the operational priority rank for emergency arrivals.
+     * Emergency trains are assigned the highest priority level (0).
      * Emergency arrivals possess the highest priority tier (rank 0).
      *
      * @return 0

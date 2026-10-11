@@ -87,21 +87,9 @@ public class TrainService {
      * @throws NullPointerException if trainId or name is null
      */
     public TrainService(String trainId, String name) {
-        this(trainId, name, DEFAULT_CAPACITY);
-    }
-
-    /**
-     * Constructs a new TrainService with specified capacity.
-     *
-     * @param trainId  unique identifier for the train; must not be null
-     * @param name     name of the train service; must not be null
-     * @param capacity seating capacity of the train
-     * @throws NullPointerException if trainId or name is null
-     */
-    public TrainService(String trainId, String name, int capacity) {
         this.trainId = Objects.requireNonNull(trainId, "trainId must not be null");
         this.name = Objects.requireNonNull(name, "name must not be null");
-        this.capacity = capacity > 0 ? capacity : DEFAULT_CAPACITY;
+        this.capacity = DEFAULT_CAPACITY;
         this.confirmedReservations = new ArrayList<>();
         this.waitingQueue = new ArrayDeque<>();
         this.declaredPriority = PRIORITY_SCHEDULED;
@@ -122,24 +110,6 @@ public class TrainService {
         this.departureTime = departureTime;
         this.trainLength = trainLength;
         this.declaredPriority = declaredPriority;
-    }
-
-    /**
-     * Sets the scheduled arrival time.
-     *
-     * @param arrivalTime the arrival time string (e.g., "08:30")
-     */
-    public void setArrivalTime(String arrivalTime) {
-        this.arrivalTime = arrivalTime;
-    }
-
-    /**
-     * Sets the scheduled departure time.
-     *
-     * @param departureTime the departure time string (e.g., "08:45")
-     */
-    public void setDepartureTime(String departureTime) {
-        this.departureTime = departureTime;
     }
 
     /**
