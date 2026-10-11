@@ -23,7 +23,7 @@
                 <li><a href="reservations.html" class="nav-link">Reservations</a></li>
                 <li><a href="platform-allocation.html" class="nav-link">Platform Allocation</a></li>
                 <li><a href="test-scenarios.html" class="nav-link">Test Scenarios</a></li>
-                <li><a href="animation.html" class="nav-link">Animation</a></li>
+                <li><a href="animation.html" class="nav-link">Simulation</a></li>
             </ul>
             <div class="nav-actions">
                 <button id="btnResetState" class="btn-reset" title="Reset all trains to empty state">
@@ -39,7 +39,7 @@
         <header class="page-header">
             <h1 class="page-title">Railway Reservation &amp; Traffic Management System</h1>
             <p class="page-desc">
-                Welcome to Payanam Junction — a web simulation of our Java 17+ Railway Reservation System. This architecture models core train services with fixed 10-seat capacities, strict First-In-First-Out (FIFO) waiting list queues, automatic promotion upon cancellation, and platform length constraints. All actions stream live output to terminal console panels below, mirroring Java console application output.
+                A live railway reservation and platform allocation simulator. Book individual seats, manage FIFO passenger queues, and track trains across three constrained platforms with a 10-minute clearance buffer.
             </p>
         </header>
 
@@ -61,6 +61,14 @@
                 <span class="stat-card-label">Available Platforms</span>
                 <span class="stat-card-value" id="statPlatforms">3 (Ready)</span>
             </div>
+            <div class="stat-card">
+                <span class="stat-card-label">Platform Utilization</span>
+                <span class="stat-card-value cyan" id="statPlatformUtilization">0%</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-card-label">Trains Waiting for Platform</span>
+                <span class="stat-card-value amber" id="statPlatformWaiting">0</span>
+            </div>
         </section>
 
         <!-- Train Summary Dashboard Grid -->
@@ -77,34 +85,20 @@
             </div>
         </section>
 
-        <!-- Global Live Terminal Output Panel -->
-        <section style="margin-top: 2rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h2 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">
-                    System Console Event Stream
-                </h2>
-                <span style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);">
-                    Mirrors Java Console Application Output
-                </span>
-            </div>
-
-            <div id="homeTerminalContainer">
-                <!-- Rendered by terminal-widget.js -->
-            </div>
-        </section>
+        <!-- System Status Banner -->
+        <div id="homeStatusContainer" style="margin-top: 1.5rem;"></div>
     </main>
 
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-container">
             <div>Payanam Junction &bull; Mini-Project Team D16</div>
-            <div class="footer-tech">Java 17+ Backend Architecture &bull; Monospace Terminal UI</div>
+            <div class="footer-tech">Java 17+ Backend Architecture &bull; Web Simulator</div>
         </div>
     </footer>
 
-    <!-- Shared Logic Scripts -->
+    <!-- Shared Logic Script -->
     <script src="sim.js"></script>
-    <script src="terminal-widget.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             renderDashboard();
@@ -114,6 +108,11 @@
                 if (confirm("Reset all reservations and logs to initial state?")) {
                     window.railwaySystem.reset();
                     renderDashboard();
+                    const statusEl = document.getElementById("homeStatusContainer");
+                    if (statusEl) {
+                        statusEl.innerHTML = '<div class="status-msg info">System state reset to initial schedules and empty bookings.</div>';
+                        setTimeout(() => { if (statusEl) statusEl.innerHTML = ""; }, 3000);
+                    }
                 }
             });
         });
@@ -125,11 +124,13 @@
 
             let totalConfirmed = 0;
             let totalWaiting = 0;
+            const platformStatus = window.railwaySystem.allocationEngine.getStatus();
 
             trains.forEach(train => {
                 const available = train.getAvailableSeats();
                 const confirmed = train.confirmedReservations.length;
                 const waiting = train.getWaitingCount();
+                const platformTrain = platformStatus.trains.find(item => item.id === train.id);
 
                 totalConfirmed += confirmed;
                 totalWaiting += waiting;
@@ -190,6 +191,10 @@
                                 <span class="train-detail-label">Train Length:</span>
                                 <span class="train-detail-val">${train.length} meters</span>
                             </li>
+                            <li class="train-detail-row">
+                                <span class="train-detail-label">Platform:</span>
+                                <span class="train-detail-val">${platformTrain.platformId || platformTrain.state}</span>
+                            </li>
                         </ul>
                     </div>
 
@@ -206,9 +211,9 @@
             // Update stats bar
             document.getElementById("statConfirmedSeats").textContent = `${totalConfirmed} / 60`;
             document.getElementById("statWaitingList").textContent = `${totalWaiting}`;
-
-            // Render live terminal output
-            renderTerminal("homeTerminalContainer", window.eventLog, "PAYANAM CENTRAL CONSOLE LOG");
+            document.getElementById("statPlatformUtilization").textContent = `${platformStatus.utilizationPercentage}%`;
+            document.getElementById("statPlatformWaiting").textContent = `${platformStatus.waitingQueue.length}`;
+            document.getElementById("statPlatforms").textContent = `${platformStatus.platforms.filter(platform => platform.occupiedIntervals.length === 0).length} free`;
         }
     </script>
 </body>

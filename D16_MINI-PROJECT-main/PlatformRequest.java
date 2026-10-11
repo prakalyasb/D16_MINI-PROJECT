@@ -44,7 +44,8 @@ public abstract class PlatformRequest {
         }
 
         // Level 3: Request timestamp (FIFO deterministic tiebreaker)
-        return Long.compare(r1.getRequestTime(), r2.getRequestTime());
+        int timeDiff = Long.compare(r1.getRequestTime(), r2.getRequestTime());
+        return timeDiff != 0 ? timeDiff : r1.getTrainId().compareTo(r2.getTrainId());
     };
 
     /** The TrainService instance for which platform allocation is requested. */

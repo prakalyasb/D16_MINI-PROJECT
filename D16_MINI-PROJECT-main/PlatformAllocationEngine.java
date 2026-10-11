@@ -86,6 +86,18 @@ public class PlatformAllocationEngine {
     public Platform tryAllocate(PlatformRequest request, int trainLength, int arrivalMinutes,
                                 int departureMinutes, int bufferMinutes) {
         Objects.requireNonNull(request, "PlatformRequest cannot be null");
+        PlatformRequest queuedRequest = waitingTrains.stream()
+                .filter(existing -> existing.getTrainId().equals(request.getTrainId()))
+                .findFirst()
+                .orElse(null);
+        if (queuedRequest != null) {
+            waitingTrains.remove(queuedRequest);
+        }
+        int maxPlatformLength = platforms.stream().mapToInt(Platform::getLength).max().orElse(0);
+        if (trainLength > maxPlatformLength) {
+            throw new IllegalArgumentException("Train " + request.getTrainId() + " rejected: length "
+                    + trainLength + "m exceeds the longest platform (" + maxPlatformLength + "m).");
+        }
 
         List<Platform> compatiblePlatforms = new ArrayList<>();
         for (Platform platform : platforms) {
@@ -96,7 +108,7 @@ public class PlatformAllocationEngine {
 
         if (!compatiblePlatforms.isEmpty()) {
             // Best-fit selection: Sort by length ascending and pick the shortest compatible platform
-            compatiblePlatforms.sort(Comparator.comparingInt(Platform::getLength));
+            compatiblePlatforms.sort(Comparator.comparingInt(Platform::getLength).thenComparing(Platform::getId));
             Platform bestFitPlatform = compatiblePlatforms.get(0);
 
             // Calculate interval boundaries including clearance buffer
@@ -129,39 +141,26 @@ public class PlatformAllocationEngine {
      * @return newly assigned Platform, or null if no waiting train can be placed
      */
     public Platform retryNextWaiting(int bufferMinutes) {
-        if (waitingTrains.isEmpty()) {
-            return null;
-        }
-
-        PlatformRequest candidate = waitingTrains.peek();
-        TrainService train = candidate.getTrain();
-
-        int arrivalMinutes = candidate.getArrivalMinutes();
-        int departureMinutes = candidate.getDepartureMinutes();
-        int trainLength = train.getTrainLength();
-
-        List<Platform> compatiblePlatforms = new ArrayList<>();
-        for (Platform platform : platforms) {
-            if (platform.isCompatible(trainLength, arrivalMinutes, departureMinutes, bufferMinutes)) {
-                compatiblePlatforms.add(platform);
+        for (PlatformRequest candidate : getWaitingSnapshot()) {
+            TrainService train = candidate.getTrain();
+            int arrivalMinutes = candidate.getArrivalMinutes();
+            int departureMinutes = candidate.getDepartureMinutes();
+            int trainLength = train.getTrainLength();
+            List<Platform> compatiblePlatforms = new ArrayList<>();
+            for (Platform platform : platforms) {
+                if (platform.isCompatible(trainLength, arrivalMinutes, departureMinutes, bufferMinutes)) {
+                    compatiblePlatforms.add(platform);
+                }
+            }
+            if (!compatiblePlatforms.isEmpty()) {
+                waitingTrains.remove(candidate);
+                compatiblePlatforms.sort(Comparator.comparingInt(Platform::getLength)
+                        .thenComparing(Platform::getId));
+                Platform selectedPlatform = compatiblePlatforms.get(0);
+                selectedPlatform.occupy(new Interval(arrivalMinutes, departureMinutes + bufferMinutes, train.getTrainId()));
+                return selectedPlatform;
             }
         }
-
-        if (!compatiblePlatforms.isEmpty()) {
-            // Candidate fits! Remove permanently from queue
-            waitingTrains.poll();
-
-            // Select shortest compatible platform
-            compatiblePlatforms.sort(Comparator.comparingInt(Platform::getLength));
-            Platform selectedPlatform = compatiblePlatforms.get(0);
-
-            int endWithBuffer = departureMinutes + bufferMinutes;
-            selectedPlatform.occupy(new Interval(arrivalMinutes, endWithBuffer, train.getTrainId()));
-
-            return selectedPlatform;
-        }
-
-        // Does not fit anywhere yet; keep at head of waiting queue
         return null;
     }
 
