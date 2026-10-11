@@ -36,6 +36,79 @@
         <div class="nav-actions"><button id="btnResetState" class="btn-reset">↺ Reset System</button></div>
     </div></nav>
     <main class="main-content">
+        <header class="page-header">
+            <h1 class="page-title">Station Platform Allocation &amp; Track Constraints</h1>
+            <p class="page-desc">
+                Physical platform specifications and berthing interval registry. In our railway topology, Payanam Junction operates 3 distinct passenger platforms with fixed physical length limits (300m, 400m, 500m). Trains whose overall length exceeds a platform's capacity cannot be routed to that platform.
+            </p>
+        </header>
+
+        <!-- Phase 2 Roadmap Notice Banner -->
+        <div class="phase2-banner">
+            <div class="phase2-icon">&#x1F6E4;&#xFE0F;</div>
+            <div>
+                <div class="phase2-title">Phase 2 Module: Automated Platform Scheduling</div>
+                <div class="phase2-text">
+                    Active track assignment, interval overlap detection, and delay cascade handling are scheduled for integration in Phase 2. Below are the physical platform definitions and empty interval structures ready for the scheduling engine.
+                </div>
+            </div>
+        </div>
+
+        <!-- Platform Specifications Table -->
+        <div class="data-table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Platform ID</th>
+                        <th>Max Length Capacity</th>
+                        <th>Permissible Trains</th>
+                        <th>Occupied Time Intervals</th>
+                        <th>Track Status</th>
+                    </tr>
+                </thead>
+                <tbody id="platformsTableBody">
+                    <!-- Dynamically populated from RailwaySystem platforms -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Operational Status Banner -->
+        <div id="platformStatusContainer" style="margin-top: 1.5rem;"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div>Payanam Junction &bull; Mini-Project Team D16</div>
+            <div class="footer-tech">Java 17+ Backend Architecture &bull; Web Simulator</div>
+        </div>
+    </footer>
+
+    <!-- Shared Logic Script -->
+    <script src="sim.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            renderPlatformTable();
+
+            // Handle Reset button
+            document.getElementById("btnResetState").addEventListener("click", () => {
+                if (confirm("Reset all reservations and logs to initial state?")) {
+                    window.railwaySystem.reset();
+                    renderPlatformTable();
+                    const statusEl = document.getElementById("platformStatusContainer");
+                    if (statusEl) {
+                        statusEl.innerHTML = '<div class="status-msg info">Platforms reset to unallocated idle state.</div>';
+                        setTimeout(() => { if (statusEl) statusEl.innerHTML = ""; }, 3000);
+                    }
+                }
+            });
+        });
+
+        function renderPlatformTable() {
+            const platforms = window.railwaySystem.listAllPlatforms();
+            const trains = window.railwaySystem.listAllTrains();
+            const tbody = document.getElementById("platformsTableBody");
+            tbody.innerHTML = "";
         <header class="page-header"><h1 class="page-title">Station Platform Allocation</h1><p class="page-desc">Three platforms (300m, 400m, 500m), best-fit allocation, half-open occupancy intervals, and a 10-minute clearance buffer. Occupied trains are never displaced.</p></header>
         <section class="allocation-controls">
             <form id="requestForm" class="allocation-control"><strong>Request a platform</strong><label for="requestTrain">Train</label><select id="requestTrain"></select><button class="btn-action" type="submit">Request platform</button></form>
