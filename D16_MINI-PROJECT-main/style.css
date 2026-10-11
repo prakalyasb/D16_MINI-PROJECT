@@ -553,6 +553,147 @@ body {
   box-sizing: border-box;
 }
 
+}
+
+.global-cancel-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.global-cancel-input {
+  flex: 1;
+  min-width: 240px;
+  max-width: 380px;
+  padding: 9px 14px;
+  font-size: 0.92rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.global-cancel-input:focus {
+  border-color: #ef4444;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.btn-global-cancel {
+  padding: 9px 18px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.global-cancel-status {
+  width: 100%;
+}
+
+/* 6 Train Cards Container & Card Sizing */
+.train-cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 24px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.train-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  gap: 14px;
+  color: #1e293b;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.train-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+}
+
+.train-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.train-card-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  overflow-wrap: break-word;
+  color: #0f172a;
+  font-weight: 700;
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+}
+
+.train-card-header .priority-badge {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.train-card-meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 14px;
+  background-color: #f8fafc;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.train-card-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.train-card-meta span strong {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.train-card-seatgrid-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 6px 0;
+}
+
+.train-card-controls {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.train-card-controls > * {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* 10-Box Seat Grid (Proportional Sizing & Centering) */
 .seat-grid {
   display: grid;
@@ -668,6 +809,12 @@ body {
   text-align: center;
   margin-top: 2px;
   line-height: 1.1;
+}
+
+.seat-box.filled.selected-occupied .seat-passenger-tag {
+  color: #b91c1c;
+}
+
 }
 
 .seat-box.filled.selected-occupied .seat-passenger-tag {
@@ -801,6 +948,89 @@ body {
 
 .btn-action.cancel:hover, .cancel-btn:hover {
   background-color: #dc2626;
+}
+
+.btn-action.secondary {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-action.secondary:hover {
+  background-color: #e2e8f0;
+  color: #1e293b;
+}
+
+.btn-action.waitlist {
+  background-color: #d97706;
+  color: #ffffff;
+}
+
+.btn-action.waitlist:hover {
+  background-color: #b45309;
+}
+
+.btn-waitlist-full {
+  width: 100%;
+  background: #f59e0b;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.btn-waitlist-full:hover {
+  background: #d97706;
+}
+
+.train-card .status-msg {
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  margin-top: 4px;
+  box-sizing: border-box;
+}
+
+/* Responsive grid layout adjustments */
+@media (min-width: 1200px) {
+  .train-cards-container {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+}
+
+@media (max-width: 1199px) and (min-width: 768px) {
+  .train-cards-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (max-width: 767px) {
+  .train-cards-container {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .global-cancel-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .global-cancel-input {
+    max-width: 100%;
+  }
+  .train-card {
+    padding: 16px;
+  }
+  .seat-grid {
+    grid-template-columns: repeat(5, minmax(46px, 58px));
+    gap: 6px;
+  }
 }
 
 .btn-action.secondary {

@@ -89,28 +89,30 @@ public class Main {
      * realistic routes, train lengths between 200m and 500m, and declared priorities.
      */
     private static void initializeSampleTrains(RailwaySystem railwaySystem) {
-        TrainService train1 = new TrainService("12601", "Mangalore Mail");
+        TrainService train1 = new TrainService("12601", "Mangalore Mail", 10);
         train1.setSchedule("06:00", "06:15", 350, "SCHEDULED");
         railwaySystem.addTrain(train1);
 
-        TrainService train2 = new TrainService("12637", "Pandian Express");
+        TrainService train2 = new TrainService("12637", "Pandian Express", 10);
         train2.setSchedule("08:30", "08:45", 420, "SCHEDULED");
         railwaySystem.addTrain(train2);
 
-        TrainService train3 = new TrainService("12007", "Mysuru Shatabdi Express");
+        TrainService train3 = new TrainService("12007", "Mysuru Shatabdi Express", 10);
         train3.setSchedule("11:15", "11:25", 280, "SCHEDULED");
         railwaySystem.addTrain(train3);
 
-        TrainService train4 = new TrainService("20607", "Vande Bharat Express");
+        TrainService train4 = new TrainService("20607", "Vande Bharat Express", 10);
         train4.setSchedule("14:00", "14:10", 320, "SCHEDULED");
         railwaySystem.addTrain(train4);
 
         // Emergency relief train
-        TrainService train5 = new TrainService("99001", "Medical Relief Special");
+        TrainService train5 = new TrainService("99001", "Medical Relief Special", 10);
         train5.setSchedule("16:45", "17:00", 250, "EMERGENCY");
         railwaySystem.addTrain(train5);
 
         // Connecting feeder train
+        TrainService train6 = new TrainService("16127", "Guruvayur Connecting Express", 10);
+        train6.setSchedule("19:30", "19:40", 380, "CONNECTING");
         TrainService train6 = new TrainService("16127", "Guruvayur Connecting Express");
         train6.setSchedule("19:30", "19:40", 650, "CONNECTING");
         railwaySystem.addTrain(train6);
