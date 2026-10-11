@@ -87,10 +87,6 @@
         byId("seatGrid").innerHTML = train.seats.map((reservation, index) =>
             `<div class="sim-seat${reservation ? " booked" : ""}${highlightedSeat === index + 1 ? " promoted" : ""}">Seat ${index + 1}<br>${reservation ? `${reservation.passenger.name}<br>${reservation.passenger.id}` : "Free"}</div>`
         ).join("");
-        if (!byId("cancelPassenger").value) {
-            const first = train.seats.find(Boolean);
-            if (first) byId("cancelPassenger").value = first.passenger.id;
-        }
     }
 
     function renderEvents() {
@@ -202,13 +198,29 @@
             } while (system.passengers.has(passengerId));
             system.joinWaitingList(train.id, passengerId, `Waiting passenger ${waiterNumber - 1}`);
         }
-        byId("cancelPassenger").value = train.seats.find(Boolean)?.passenger.id || "";
+        byId("cancelPassenger").value = "";
         showResult("seatFeedback", { ok: true, message: `${train.id} is ready. Cancel a booked passenger to promote the first waiter.` });
         renderAll();
     });
     byId("cancelByPassenger").addEventListener("click", () => {
         const trainId = byId("seatTrain").value;
-        const result = system.cancelBookingByPassengerId(trainId, byId("cancelPassenger").value.trim());
+        const passengerId = byId("cancelPassenger").value.trim();
+        const train = system.trains.get(trainId);
+        if (!passengerId) {
+            showResult("seatFeedback", { ok: false, message: "Enter a Passenger ID before cancelling." });
+            return;
+        }
+        const booking = train && train.seats.find(reservation =>
+            reservation && reservation.passenger.id === passengerId);
+        if (!booking) {
+            showResult("seatFeedback", { ok: false, message: `No confirmed booking found for Passenger ID ${passengerId}.` });
+            return;
+        }
+        if (!confirm(`Cancel booking for ${booking.passenger.name} (${passengerId}) on ${train.name}, seat #${booking.seatNumber}?`)) {
+            showResult("seatFeedback", { ok: false, message: "Cancellation aborted. No booking was changed." });
+            return;
+        }
+        const result = system.cancelBookingByPassengerId(trainId, passengerId);
         highlightedSeat = result.ok ? result.cancelledSeat : null;
         const message = result.ok
             ? `Cancelled seat ${result.cancelledSeat}${result.promoted ? `; ${result.promoted.passenger.name} promoted to that seat` : ""}.`

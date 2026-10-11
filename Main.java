@@ -195,6 +195,18 @@ public class Main {
             System.out.print("Enter reservation ID: ");
             String reservationId = scanner.nextLine().trim();
 
+            Reservation booking = railwaySystem.findReservation(trainId, reservationId);
+            Passenger passenger = booking.getPassenger();
+            System.out.printf("Booking: %s, %s, seat #%d%n",
+                    reservationId,
+                    passenger != null ? passenger.getName() : "Unknown passenger",
+                    booking.getSeatNumber());
+            System.out.print("Cancel this booking? (yes/no): ");
+            if (!"yes".equalsIgnoreCase(scanner.nextLine().trim())) {
+                System.out.println("Cancellation aborted.");
+                return;
+            }
+
             Reservation promoted = railwaySystem.cancelBooking(trainId, reservationId);
 
             System.out.println("Booking cancelled successfully.");
