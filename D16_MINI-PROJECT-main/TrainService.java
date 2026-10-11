@@ -256,97 +256,70 @@ public class TrainService {
      * @throws NullPointerException if passenger or idGenerator is null
      */
     public Reservation bookSeat(Passenger passenger, ReservationIdGenerator idGenerator) {
+        int seatNumber = findAvailableSeatNumber();
+        return bookSeat(passenger, seatNumber > 0 ? seatNumber : 1, idGenerator);
+    }
+
+    public Reservation bookSeat(Passenger passenger, int seatNumber, ReservationIdGenerator idGenerator) {
         Objects.requireNonNull(passenger, "passenger must not be null");
         Objects.requireNonNull(idGenerator, "idGenerator must not be null");
 
-        if (confirmedReservations.size() < capacity) {
-            String reservationId = idGenerator.next();
-            int seatNumber = confirmedReservations.size() + 1;
-            Reservation reservation = new Reservation(reservationId, passenger, this.trainId, seatNumber);
-
-            // Insert into confirmedReservations in bookingTime order
-            addConfirmedReservationSorted(reservation);
-
-            return reservation;
-        } else {
+        if (seatNumber < 1 || seatNumber > capacity) {
+            throw new IllegalArgumentException("Seat number must be between 1 and " + capacity);
+        }
+        if (isFull()) {
             waitingQueue.addLast(passenger);
             return null;
         }
+        if (confirmedReservations.stream().anyMatch(reservation -> reservation.getSeatNumber() == seatNumber)) {
+            throw new IllegalArgumentException("Seat " + seatNumber + " is already booked");
+        }
+
+        String reservationId = idGenerator.next();
+        Reservation reservation = new Reservation(reservationId, passenger, this.trainId, seatNumber);
+        addConfirmedReservationSorted(reservation);
+        return reservation;
+    }
+
+    public int findAvailableSeatNumber() {
+        for (int seatNumber = 1; seatNumber <= capacity; seatNumber++) {
+            final int candidateSeat = seatNumber;
+            if (confirmedReservations.stream().noneMatch(reservation -> reservation.getSeatNumber() == candidateSeat)) {
+                return seatNumber;
+            }
+        }
+        return -1;
     }
 
     /**
-     * Cancels an existing confirmed reservation on this train and reallocates
-     * the freed seat to the next waiting passenger in strict FIFO order, if any.
-     * <p>
-     * Logic:
-     * <ol>
-     *   <li>Find the confirmed reservation with this ID on this train.</li>
-     *   <li>If it does not exist, throw {@link IllegalArgumentException}.</li>
-     *   <li>If it is already cancelled, throw {@link IllegalArgumentException}.</li>
-     *   <li>Mark it CANCELLED.</li>
-     *   <li>Remove it from confirmedReservations.</li>
-     *   <li>Get the FIRST passenger from waitingQueue using {@code pollFirst()}.</li>
-     *   <li>If a waiting passenger exists:
-     *     <ul>
-     *       <li>Create a new Reservation for that passenger.</li>
-     *       <li>Use the seat number that was just freed.</li>
-     *       <li>Add the new reservation to confirmedReservations in bookingTime order.</li>
-     *       <li>Return the new Reservation.</li>
-     *     </ul>
-     *   </li>
-     *   <li>If nobody is waiting, return {@code null}.</li>
-     * </ol>
-     *
-     * @param reservationId the ID of the reservation to cancel; must not be null
-     * @param idGenerator   the generator used to produce reservation IDs; must not be null
-     * @return the new confirmed {@link Reservation} for the promoted waiting passenger, or {@code null} if no passenger was waiting
-     * @throws IllegalArgumentException if the reservation does not exist or is already cancelled
-     * @throws NullPointerException     if reservationId or idGenerator is null
+     * Cancels the first confirmed reservation for a passenger and promotes the oldest
+     * waiting passenger into the same seat, when the waiting list is non-empty.
      */
-    public Reservation cancelBooking(String reservationId, ReservationIdGenerator idGenerator) {
-        if (reservationId == null) {
-            throw new IllegalArgumentException("Reservation ID cannot be null");
+    public Reservation cancelBookingByPassengerId(String passengerId, ReservationIdGenerator idGenerator) {
+        if (passengerId == null || passengerId.isBlank()) {
+            throw new IllegalArgumentException("Passenger ID cannot be blank");
         }
         Objects.requireNonNull(idGenerator, "idGenerator must not be null");
+        Reservation foundReservation = confirmedReservations.stream()
+                .filter(reservation -> reservation.getPassenger() != null
+                        && passengerId.equalsIgnoreCase(reservation.getPassenger().getPassengerId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Confirmed booking not found for passenger ID: " + passengerId));
+        return cancelFoundReservation(foundReservation, idGenerator);
+    }
 
-        // 1. Find the confirmed reservation with this ID on this train
-        Reservation foundReservation = null;
-        for (Reservation res : confirmedReservations) {
-            if (res.getReservationId().equals(reservationId)) {
-                foundReservation = res;
-                break;
-            }
-        }
-
-        // 2. If it does not exist, throw IllegalArgumentException
-        if (foundReservation == null) {
-            throw new IllegalArgumentException("Reservation not found with ID: " + reservationId);
-        }
-
-        // 3. If it is already cancelled, throw IllegalArgumentException
-        if (foundReservation.getStatus() == Reservation.Status.CANCELLED) {
-            throw new IllegalArgumentException("Reservation is already cancelled: " + reservationId);
-        }
-
-        // 4. Mark it CANCELLED
+    private Reservation cancelFoundReservation(Reservation foundReservation, ReservationIdGenerator idGenerator) {
+        // Mark the booking cancelled and retain the exact freed seat number.
         foundReservation.markCancelled();
-
-        // 5. Remove it from confirmedReservations and capture freed seat number
         int freedSeatNumber = foundReservation.getSeatNumber();
         confirmedReservations.remove(foundReservation);
-
-        // 6. Get the FIRST passenger from waitingQueue using pollFirst()
         Passenger nextPassenger = waitingQueue.pollFirst();
-
-        // 7. If a waiting passenger exists, allocate the freed seat and insert in bookingTime order
         if (nextPassenger != null) {
             String newReservationId = idGenerator.next();
             Reservation newReservation = new Reservation(newReservationId, nextPassenger, this.trainId, freedSeatNumber);
             addConfirmedReservationSorted(newReservation);
             return newReservation;
         }
-
-        // 8. If nobody is waiting, return null
         return null;
     }
 

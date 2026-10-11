@@ -19,6 +19,7 @@ public class RailwaySystem {
 
     /** Default buffer clearance time (in minutes) required after each train departure. */
     public static final int DEFAULT_BUFFER_MINUTES = 5;
+    public static final int DEFAULT_BUFFER_MINUTES = 10;
 
     /** Map of trains in the railway system, keyed by train ID. */
     private HashMap<String, TrainService> trains;
@@ -128,6 +129,10 @@ public class RailwaySystem {
      * @return the created Reservation, or null if waitlisted
      */
     public Reservation bookSeat(String trainId, String passengerId, String passengerName) {
+        return bookSeat(trainId, passengerId, passengerName, 0);
+    }
+
+    public Reservation bookSeat(String trainId, String passengerId, String passengerName, int seatNumber) {
         TrainService train = getTrain(trainId);
         Passenger passenger = getPassenger(passengerId);
 
@@ -136,7 +141,9 @@ public class RailwaySystem {
             registerPassenger(passenger);
         }
 
-        return train.bookSeat(passenger, idGenerator);
+        return seatNumber == 0
+                ? train.bookSeat(passenger, idGenerator)
+                : train.bookSeat(passenger, seatNumber, idGenerator);
     }
 
     /**
@@ -145,10 +152,209 @@ public class RailwaySystem {
      * @param trainId       the ID of the train
      * @param reservationId the ID of the reservation to cancel
      * @return promoted Reservation or null
+     * @param passengerId the ID of the passenger whose booking is cancelled
+     * @return promoted Reservation or null
      */
-    public Reservation cancelBooking(String trainId, String reservationId) {
+    public Reservation cancelBooking(String trainId, String passengerId) {
         TrainService train = getTrain(trainId);
-        return train.cancelBooking(reservationId, idGenerator);
+        return train.cancelBookingByPassengerId(passengerId, idGenerator);
+    }
+
+    public Reservation cancelBookingByPassengerId(String trainId, String passengerId) {
+        return cancelBooking(trainId, passengerId);
+    }
+
+    // =========================================================================
+    // Platform Allocation & Delay Handling Methods
+    // =========================================================================
+
+    /**
+     * Requests platform allocation for a specified train based on its declared priority
+     * and physical/time constraints.
+     *
+     * Builds the corresponding PlatformRequest subclass based on the train's declared priority:
+     * - EMERGENCY -> EmergencyArrival
+     * - CONNECTING -> ConnectingArrival
+     * - SCHEDULED -> ScheduledArrival
+     *
+     * @param trainId the identifier of the train requesting a platform
+     * @return the allocated Platform, or null if added to the waiting queue
+     */
+    public Platform requestPlatform(String trainId) {
+        TrainService train = getTrain(trainId);
+
+        // If train already holds a platform, return it
+        if (trainToPlatform.containsKey(trainId)) {
+            return trainToPlatform.get(trainId);
+        }
+
+        int arrivalMinutes = parseTimeToMinutes(train.getArrivalTime());
+        int departureMinutes = parseTimeToMinutes(train.getDepartureTime());
+
+        PlatformRequest request = DelayHandler.createPlatformRequest(train);
+        Platform allocated = allocationEngine.tryAllocate(
+                request, train.getTrainLength(), arrivalMinutes, departureMinutes, bufferMinutes);
+
+        if (allocated != null) {
+            trainToPlatform.put(trainId, allocated);
+        }
+        return allocated;
+    }
+
+    /**
+     * Departs a train from its allocated platform, frees the platform interval,
+     * and iteratively retries allocation for waiting trains in the priority queue.
+     *
+     * @param trainId the identifier of the departing train
+     * @throws IllegalArgumentException if the train is not found or does not hold a platform
+     */
+    public void departTrain(String trainId) {
+        TrainService train = getTrain(trainId);
+        Platform platform = trainToPlatform.get(trainId);
+
+        if (platform == null) {
+            throw new IllegalArgumentException("Train " + trainId + " does not currently hold a platform.");
+        }
+
+        // Release the platform interval and remove active tracking
+        platform.release(trainId);
+        trainToPlatform.remove(trainId);
+        System.out.printf("Train %s departed. Platform %s freed.%n", trainId, platform.getId());
+
+        retryWaitingTrains();
+    }
+
+    /**
+     * Handles a schedule delay for the specified train by converting HH:MM inputs,
+     * retrieving current platform assignment (if any), delegating to DelayHandler.handleDelay(),
+     * and updating internal platform tracking based on the result.
+     *
+     * @param trainId          the identifier of the train being delayed
+     * @param newArrivalHHMM   the new arrival time in "HH:MM" format
+     * @param newDepartureHHMM the new departure time in "HH:MM" format
+     */
+    public void delayTrain(String trainId, String newArrivalHHMM, String newDepartureHHMM) {
+        TrainService train = getTrain(trainId);
+        int newArrivalMinutes = parseTimeToMinutes(newArrivalHHMM);
+        int newDepartureMinutes = parseTimeToMinutes(newDepartureHHMM);
+
+        Platform currentPlatform = trainToPlatform.get(trainId);
+
+        // Delegate to DelayHandler
+        DelayHandler.handleDelay(
+                train, newArrivalMinutes, newDepartureMinutes, currentPlatform, allocationEngine, bufferMinutes);
+
+        // Synchronize trainToPlatform map with DelayHandler outcome
+        Platform resultPlatform = DelayHandler.getLastResultPlatform();
+        if (resultPlatform != null) {
+            trainToPlatform.put(trainId, resultPlatform);
+        } else {
+            trainToPlatform.remove(trainId);
+        }
+        retryWaitingTrains();
+    }
+
+    private void retryWaitingTrains() {
+        Platform newlyAllocated;
+        while ((newlyAllocated = allocationEngine.retryNextWaiting(bufferMinutes)) != null) {
+            String promotedTrainId = newlyAllocated.getOccupiedIntervals().stream()
+                    .map(Interval::getTrainId)
+                    .filter(id -> !trainToPlatform.containsKey(id))
+                    .findFirst()
+                    .orElse(null);
+            if (promotedTrainId != null) {
+                trainToPlatform.put(promotedTrainId, newlyAllocated);
+                System.out.printf("Waiting Train %s promoted and allocated to Platform %s.%n",
+                        promotedTrainId, newlyAllocated.getId());
+            }
+        }
+    }
+
+    /**
+     * Returns an unmodifiable list of station platforms.
+     *
+     * @return unmodifiable list of platforms
+     */
+    public List<Platform> getPlatforms() {
+        return Collections.unmodifiableList(platforms);
+    }
+
+    /**
+     * Returns the allocation engine.
+     *
+     * @return PlatformAllocationEngine instance
+     */
+    public PlatformAllocationEngine getAllocationEngine() {
+        return allocationEngine;
+    }
+
+    /**
+     * Returns an unmodifiable map of train-to-platform assignments.
+     *
+     * @return unmodifiable map
+     */
+    public Map<String, Platform> getTrainToPlatform() {
+        return Collections.unmodifiableMap(trainToPlatform);
+    }
+
+    /**
+     * Returns the platform currently held by a train, or null if none.
+     *
+     * @param trainId the train identifier
+     * @return assigned Platform or null
+     */
+    public Platform getAssignedPlatform(String trainId) {
+        return trainToPlatform.get(trainId);
+    }
+
+    /**
+     * Returns the clearance buffer in minutes.
+     *
+     * @return bufferMinutes
+     */
+    public int getBufferMinutes() {
+        return bufferMinutes;
+    }
+
+    /**
+     * Sets the clearance buffer in minutes.
+     *
+     * @param bufferMinutes clearance buffer
+     */
+    public void setBufferMinutes(int bufferMinutes) {
+        this.bufferMinutes = bufferMinutes;
+    }
+
+    /**
+     * Helper to parse a 24-hour "HH:MM" string into minutes from midnight.
+     *
+     * @param hhmm time string
+     * @return total minutes from midnight
+     * @throws IllegalArgumentException if format is invalid
+     */
+    public static int parseTimeToMinutes(String hhmm) {
+        if (hhmm == null || !hhmm.contains(":")) {
+            throw new IllegalArgumentException("Time must be in HH:MM format (got: " + hhmm + ")");
+        }
+        String[] parts = hhmm.trim().split(":");
+        int hours = Integer.parseInt(parts[0].trim());
+        int mins = Integer.parseInt(parts[1].trim());
+        if (hours < 0 || hours > 23 || mins < 0 || mins > 59) {
+            throw new IllegalArgumentException("Hours must be 0-23 and minutes 0-59 (got: " + hhmm + ")");
+        }
+        return hours * 60 + mins;
+    }
+
+    /**
+     * Helper to format total minutes into a 24-hour "HH:MM" string.
+     *
+     * @param minutes minutes from midnight
+     * @return HH:MM string
+     */
+    public static String formatMinutesToTime(int minutes) {
+        int hours = (minutes / 60) % 24;
+        int mins = minutes % 60;
+        return String.format("%02d:%02d", hours, mins);
     }
 
     // =========================================================================

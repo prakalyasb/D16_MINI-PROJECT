@@ -305,6 +305,37 @@ class TrainService {
         }
 
         // 2. Mark it CANCELLED and clear this seat slot
+     * Cancels an existing booking by Passenger ID and promotes the next waiting passenger if present.
+     *
+     * @param {string} passengerId
+     * @param {RailwaySystem} [systemRef]
+     * @returns {{ ok: boolean, reason?: string, cancelledSeat?: number, promoted?: Reservation|null }}
+     */
+    cancelBookingByPassengerId(passengerId, systemRef) {
+        this.lastCancelResult = null;
+
+        if (!passengerId) {
+            return { ok: false, reason: "Passenger ID is required" };
+        }
+
+        const targetPId = String(passengerId).trim();
+
+        // Search this.seats for the entry where seat.passenger.id === passengerId
+        let seatIndex = this.seats.findIndex(r => r && r.passenger && (r.passenger.id === targetPId || r.passenger.id.toUpperCase() === targetPId.toUpperCase()));
+
+        if (seatIndex === -1) {
+            const reason = "No confirmed booking found for passenger " + passengerId;
+            console.error(reason + " on Train " + this.id);
+            window.eventLog.push(`CANCEL ERROR: ${reason} on Train ${this.id}`);
+            this.lastCancelResult = { success: false, error: reason, freedSeatNumber: null, promotedReservation: null };
+            if (systemRef) {
+                systemRef.lastCancelResult = this.lastCancelResult;
+                systemRef.saveToStorage();
+            }
+            return { ok: false, reason: reason };
+        }
+
+        const cancelledRes = this.seats[seatIndex];
         cancelledRes.markCancelled();
         const freedSeat = seatIndex + 1;
         this.seats[seatIndex] = null;
@@ -313,6 +344,9 @@ class TrainService {
         window.eventLog.push(cancelLog);
 
         // 3. If waitingQueue.length > 0, shift() front passenger and assign SAME seat slot
+        const cancelLog = `CANCEL: Passenger ${cancelledRes.passenger.id} (${cancelledRes.passenger.name}) on Train ${this.id} cancelled (Seat ${freedSeat} freed, reservation ${cancelledRes.id})`;
+        window.eventLog.push(cancelLog);
+
         if (this.waitingQueue.length > 0) {
             const promotedPassenger = this.waitingQueue.shift(); // strictly FIFO shift()
             const newResId = systemRef ? systemRef.generateReservationId() : `R${String(Date.now()).slice(-3)}`;
@@ -335,7 +369,19 @@ class TrainService {
                 systemRef.saveToStorage();
             }
 
-            return promotedRes;
+            this.lastCancelResult = {
+                success: true,
+                error: null,
+                freedSeatNumber: freedSeat,
+                promotedReservation: promotedRes
+            };
+
+            if (systemRef) {
+                systemRef.lastCancelResult = this.lastCancelResult;
+                systemRef.saveToStorage();
+            }
+
+            return { ok: true, cancelledSeat: freedSeat, promoted: promotedRes };
         }
 
         // 4. If waitingQueue is empty, return null (seat stays empty, no promotion)
@@ -352,6 +398,23 @@ class TrainService {
         }
 
         return null;
+        return { ok: true, cancelledSeat: freedSeat, promoted: null };
+    }
+}
+
+class Interval {
+    constructor(startMinutes, endMinutes, trainId) {
+        this.startMinutes = startMinutes;
+        this.endMinutes = endMinutes;
+        this.trainId = trainId;
+        this.startMin = startMinutes;
+        this.endMin = endMinutes;
+        this.arrival = minutesToTime(startMinutes);
+        this.departure = minutesToTime(endMinutes);
+    }
+
+    overlaps(other) {
+        return this.startMinutes < other.endMinutes && other.startMinutes < this.endMinutes;
     }
 
     /**
@@ -443,6 +506,57 @@ class Platform {
         this.id = id;
         this.length = length; // in meters
         this.occupiedIntervals = []; // List of { trainId, arrival, departure, startMin, endMin }
+class Platform {
+    constructor(id, length) {
+        this.id = id;
+        this.length = length;
+        this.occupiedIntervals = [];
+    }
+
+    isCompatible(trainLength, arrivalMinutes, departureMinutes, bufferMinutes = 10, trainId = "") {
+        if (trainLength > this.length) {
+            return {
+                ok: false,
+                reason: `Platform ${this.id.replace("PF-", "")} too short: needs ${trainLength}m, has ${this.length}m`
+            };
+        }
+        const candidate = new Interval(arrivalMinutes, departureMinutes + bufferMinutes, trainId);
+        const conflict = this.occupiedIntervals.find(interval =>
+            interval.trainId !== trainId && candidate.overlaps(interval)
+        );
+        if (conflict) {
+            return {
+                ok: false,
+                reason: `Overlaps ${conflict.trainId} ${minutesToTime(conflict.startMin)}-${minutesToTime(conflict.endMin)}`
+            };
+        }
+        return { ok: true, reason: "" };
+    }
+
+    occupy(interval) {
+        this.release(interval.trainId);
+        this.occupiedIntervals.push({
+            trainId: interval.trainId,
+            arrival: minutesToTime(interval.startMinutes),
+            departure: minutesToTime(interval.endMinutes),
+            startMin: interval.startMinutes,
+            endMin: interval.endMinutes,
+            startMinutes: interval.startMinutes,
+            endMinutes: interval.endMinutes
+        });
+        this.occupiedIntervals.sort((a, b) => a.startMin - b.startMin || a.trainId.localeCompare(b.trainId));
+    }
+
+    release(trainId) {
+        const previousLength = this.occupiedIntervals.length;
+        this.occupiedIntervals = this.occupiedIntervals.filter(interval => interval.trainId !== trainId);
+        return this.occupiedIntervals.length !== previousLength;
+    }
+
+    getNextReleaseTime() {
+        return this.occupiedIntervals.length
+            ? Math.min(...this.occupiedIntervals.map(interval => interval.endMin))
+            : Number.POSITIVE_INFINITY;
     }
 }
 
@@ -461,7 +575,8 @@ class RailwaySystem {
 
         this.initPlatforms();
         this.initTrains();
-        this.loadFromStorage();
+        this.allocationEngine = new PlatformAllocationEngine(Array.from(this.platforms.values()), this);
+        this.allocationEngine.resetPhase2();
     }
 
     /**
@@ -573,6 +688,55 @@ class RailwaySystem {
         const res = train.cancelBooking(reservationId, this);
         this.lastCancelResult = train.lastCancelResult;
         return res;
+    }
+
+    /**
+     * Cancels a booking by Passenger ID and handles waitlist promotion.
+     * Supports both:
+     *   cancelBookingByPassengerId(trainId, passengerId)
+     *   cancelBookingByPassengerId(passengerId)  // global search across all trains
+     *
+     * @param {string} arg1 - trainId or passengerId
+     * @param {string} [arg2] - passengerId if arg1 is trainId
+     * @returns {{ ok: boolean, reason?: string, cancelledSeat?: number, promoted?: Reservation|null, trainId?: string, train?: TrainService }}
+     */
+    cancelBookingByPassengerId(arg1, arg2) {
+        let trainId = null;
+        let passengerId = null;
+
+        if (arg2 !== undefined && arg2 !== null && String(arg2).trim() !== "") {
+            trainId = String(arg1).trim();
+            passengerId = String(arg2).trim();
+        } else {
+            passengerId = String(arg1).trim();
+        }
+
+        if (!passengerId) {
+            const err = "Passenger ID is required";
+            this.lastCancelResult = { success: false, error: err, freedSeatNumber: null, promotedReservation: null };
+            return { ok: false, reason: err };
+        }
+
+        if (trainId) {
+            const train = this.trains.get(trainId);
+            if (!train) {
+                const err = `Train ${trainId} not found`;
+                console.error(err);
+                this.lastCancelResult = { success: false, error: err, freedSeatNumber: null, promotedReservation: null };
+                return { ok: false, reason: err };
+            }
+            const res = train.cancelBookingByPassengerId(passengerId, this);
+            this.lastCancelResult = train.lastCancelResult;
+            if (res && res.ok) {
+                res.trainId = trainId;
+                res.train = train;
+            }
+            return res;
+        }
+
+        }
+
+        return train.joinWaitingList(passenger, this);
     }
 
     /**
@@ -760,14 +924,14 @@ class RailwaySystem {
             // Ignore parse errors and retain initial state
         }
     }
+    saveToStorage() {}
+
+    loadFromStorage() {}
 
     /**
      * Resets system to fresh default state
      */
     reset() {
-        try {
-            sessionStorage.removeItem("payanam_railway_state");
-        } catch (e) {}
         this.trains.clear();
         this.passengers.clear();
         this.idCounter = 0;
@@ -777,6 +941,417 @@ class RailwaySystem {
         this.initPlatforms();
         this.initTrains();
         this.saveToStorage();
+        if (this.allocationEngine) {
+            this.allocationEngine.platforms = Array.from(this.platforms.values()).sort((a, b) => a.length - b.length || a.id.localeCompare(b.id));
+            this.allocationEngine.railwaySystem = this;
+        } else {
+            this.allocationEngine = new PlatformAllocationEngine(Array.from(this.platforms.values()), this);
+        }
+        this.allocationEngine.resetPhase2();
+    }
+}
+
+class PlatformRequest {
+    constructor(train, requestTime) {
+        this.train = train;
+        this.requestTime = requestTime;
+        this.arrivalMinutes = parseTimeToMinutes(train.arrival);
+        this.departureMinutes = parseTimeToMinutes(train.departure);
+    }
+
+    getTrain() {
+        return this.train;
+    }
+
+    priorityRank() {
+        return 2;
+    }
+
+    static compare(left, right) {
+        return left.priorityRank() - right.priorityRank()
+            || left.arrivalMinutes - right.arrivalMinutes
+            || left.requestTime - right.requestTime
+            || left.train.id.localeCompare(right.train.id);
+    }
+}
+
+class EmergencyArrival extends PlatformRequest {
+    priorityRank() {
+        return 0;
+    }
+}
+
+class ConnectingArrival extends PlatformRequest {
+    priorityRank() {
+        return 1;
+    }
+}
+
+class ScheduledArrival extends PlatformRequest {
+    priorityRank() {
+        return 2;
+    }
+}
+
+function createPlatformRequest(train, requestTime) {
+    const RequestType = train.priority === "EMERGENCY"
+        ? EmergencyArrival
+        : train.priority === "CONNECTING"
+            ? ConnectingArrival
+            : ScheduledArrival;
+    return new RequestType(train, requestTime);
+}
+
+class PriorityQueue {
+    constructor(compare = PlatformRequest.compare) {
+        this.heap = [];
+        this.compare = compare;
+    }
+
+    get size() {
+        return this.heap.length;
+    }
+
+    offer(value) {
+        this.heap.push(value);
+        this._siftUp(this.heap.length - 1);
+    }
+
+    peek() {
+        return this.heap[0] || null;
+    }
+
+    poll() {
+        if (!this.heap.length) return null;
+        const first = this.heap[0];
+        const last = this.heap.pop();
+        if (this.heap.length) {
+            this.heap[0] = last;
+            this._siftDown(0);
+        }
+        return first;
+    }
+
+    remove(value) {
+        const index = this.heap.indexOf(value);
+        if (index < 0) return false;
+        const last = this.heap.pop();
+        if (index < this.heap.length) {
+            this.heap[index] = last;
+            if (index > 0 && this.compare(this.heap[index], this.heap[Math.floor((index - 1) / 2)]) < 0) {
+                this._siftUp(index);
+            } else {
+                this._siftDown(index);
+            }
+        }
+        return true;
+    }
+
+    toSortedArray() {
+        return this.heap.slice().sort(this.compare);
+    }
+
+    _siftUp(index) {
+        while (index > 0) {
+            const parent = Math.floor((index - 1) / 2);
+            if (this.compare(this.heap[parent], this.heap[index]) <= 0) break;
+            [this.heap[parent], this.heap[index]] = [this.heap[index], this.heap[parent]];
+            index = parent;
+        }
+    }
+
+    _siftDown(index) {
+        for (;;) {
+            const left = index * 2 + 1;
+            const right = left + 1;
+            let smallest = index;
+            if (left < this.heap.length && this.compare(this.heap[left], this.heap[smallest]) < 0) smallest = left;
+            if (right < this.heap.length && this.compare(this.heap[right], this.heap[smallest]) < 0) smallest = right;
+            if (smallest === index) return;
+            [this.heap[index], this.heap[smallest]] = [this.heap[smallest], this.heap[index]];
+            index = smallest;
+        }
+    }
+}
+
+class PlatformAllocationEngine {
+    constructor(platforms, railwaySystem, bufferMinutes = 10) {
+        this.platforms = platforms.slice().sort((a, b) => a.length - b.length || a.id.localeCompare(b.id));
+        this.railwaySystem = railwaySystem;
+        this.bufferMinutes = bufferMinutes;
+        this.waitingQueue = new PriorityQueue();
+        this.assignments = new Map();
+        this.requestSequence = 0;
+    }
+
+    _record(result) {
+        window.eventLog.push(result.message);
+        return result;
+    }
+
+    _compatiblePlatforms(train, arrivalMinutes, departureMinutes, ignoreTrainId = train.id) {
+        return this.platforms.filter(platform =>
+            platform.isCompatible(train.length, arrivalMinutes, departureMinutes, this.bufferMinutes, ignoreTrainId).ok
+        );
+    }
+
+    _occupy(request, platform, arrivalMinutes, departureMinutes) {
+        const train = request.train;
+        platform.occupy(new Interval(arrivalMinutes, departureMinutes + this.bufferMinutes, train.id));
+        this.assignments.set(train.id, platform);
+        train.platformState = "ASSIGNED";
+        train.platformId = platform.id;
+        return platform;
+    }
+
+    _queue(request) {
+        if (!this.waitingQueue.heap.some(item => item.train.id === request.train.id)) {
+            this.waitingQueue.offer(request);
+        }
+        request.train.platformState = "WAITING";
+        request.train.platformId = null;
+    }
+
+    tryAllocate(request, trainLength, arrivalMinutes, departureMinutes, bufferMinutes = this.bufferMinutes) {
+        if (!(request instanceof PlatformRequest)) {
+            return this._record({ ok: false, message: "Invalid platform request." });
+        }
+        if (!Number.isInteger(trainLength) || !Number.isInteger(arrivalMinutes)
+            || !Number.isInteger(departureMinutes) || departureMinutes <= arrivalMinutes) {
+            return this._record({ ok: false, message: `Invalid schedule for ${request.train.id}.` });
+        }
+        this.bufferMinutes = bufferMinutes;
+        const train = request.train;
+        if (trainLength > Math.max(...this.platforms.map(platform => platform.length))) {
+            train.platformState = "REJECTED";
+            train.platformId = null;
+            const result = { ok: false, rejected: true, message: `${train.id} rejected: train length ${trainLength}m exceeds the longest platform (${Math.max(...this.platforms.map(platform => platform.length))}m).` };
+            return this._record(result);
+        }
+        if (this.assignments.has(train.id)) {
+            const platform = this.assignments.get(train.id);
+            return this._record({ ok: true, platform, message: `${train.id} already holds ${platform.id}.` });
+        }
+        const existingRequest = this.waitingQueue.heap.find(item => item.train.id === train.id);
+        if (existingRequest) {
+            this.waitingQueue.remove(existingRequest);
+        }
+        const compatible = this._compatiblePlatforms(train, arrivalMinutes, departureMinutes);
+        if (compatible.length) {
+            const platform = compatible[0];
+            this._occupy(request, platform, arrivalMinutes, departureMinutes);
+            return this._record({ ok: true, platform, message: `${train.id} assigned to ${platform.id} (${minutesToTime(arrivalMinutes)}-${minutesToTime(departureMinutes + this.bufferMinutes)} incl. 10m clearance).` });
+        }
+        this._queue(request);
+        return this._record({ ok: false, queued: true, message: `${train.id} waitlisted: no compatible platform is free for ${minutesToTime(arrivalMinutes)}-${minutesToTime(departureMinutes + this.bufferMinutes)}.` });
+    }
+
+    requestPlatform(trainId) {
+        const train = this.railwaySystem.trains.get(trainId);
+        if (!train) return this._record({ ok: false, message: `Train ${trainId} not found.` });
+        const request = createPlatformRequest(train, ++this.requestSequence);
+        return this.tryAllocate(request, train.length, parseTimeToMinutes(train.arrival), parseTimeToMinutes(train.departure));
+    }
+
+    retryNextWaiting() {
+        const promoted = [];
+        for (;;) {
+            const ordered = this.waitingQueue.toSortedArray();
+            let candidate = null;
+            let platform = null;
+            for (const request of ordered) {
+                const compatible = this._compatiblePlatforms(
+                    request.train,
+                    parseTimeToMinutes(request.train.arrival),
+                    parseTimeToMinutes(request.train.departure)
+                );
+                if (compatible.length) {
+                    candidate = request;
+                    platform = compatible[0];
+                    break;
+                }
+            }
+            if (!candidate || !platform) break;
+            this.waitingQueue.remove(candidate);
+            this._occupy(candidate, platform, parseTimeToMinutes(candidate.train.arrival), parseTimeToMinutes(candidate.train.departure));
+            promoted.push(candidate.train.id);
+            this._record({ ok: true, message: `${candidate.train.id} promoted from platform queue to ${platform.id}.` });
+        }
+        return this._record({ ok: true, promoted, message: promoted.length ? `Promoted ${promoted.join(", ")} from the platform queue.` : "No waiting train can be allocated yet." });
+    }
+
+    reRank(request) {
+        this.waitingQueue.remove(request);
+        this.waitingQueue.offer(request);
+        return this._record({ ok: true, message: `${request.train.id} re-ranked in the platform waiting queue.` });
+    }
+
+    departTrain(trainId) {
+        const platform = this.assignments.get(trainId);
+        if (!platform) return this._record({ ok: false, message: `${trainId} does not currently hold a platform.` });
+        platform.release(trainId);
+        this.assignments.delete(trainId);
+        const train = this.railwaySystem.trains.get(trainId);
+        if (train) {
+            train.platformId = null;
+            train.platformState = "DEPARTED";
+        }
+        const retry = this.retryNextWaiting();
+        return this._record({ ok: true, promoted: retry.promoted, message: `${trainId} departed ${platform.id}. ${retry.message}` });
+    }
+
+    delayTrain(trainId, newArrival, newDeparture) {
+        const train = this.railwaySystem.trains.get(trainId);
+        if (!train) return this._record({ ok: false, message: `Train ${trainId} not found.` });
+        const arrival = typeof newArrival === "number" ? newArrival : parseTimeToMinutes(newArrival);
+        const departure = typeof newDeparture === "number" ? newDeparture : parseTimeToMinutes(newDeparture);
+        if (!Number.isInteger(arrival) || !Number.isInteger(departure) || arrival < 0 || departure <= arrival) {
+            return this._record({ ok: false, message: `Invalid delayed schedule for ${trainId}.` });
+        }
+        const oldPlatform = this.assignments.get(trainId) || null;
+        const waitingRequest = this.waitingQueue.heap.find(request => request.train.id === trainId) || null;
+        if (oldPlatform) {
+            oldPlatform.release(trainId);
+            this.assignments.delete(trainId);
+        }
+        if (waitingRequest) this.waitingQueue.remove(waitingRequest);
+        train.arrival = minutesToTime(arrival);
+        train.departure = minutesToTime(departure);
+        const request = waitingRequest || createPlatformRequest(train, ++this.requestSequence);
+        request.arrivalMinutes = arrival;
+        request.departureMinutes = departure;
+        if (train.length > Math.max(...this.platforms.map(platform => platform.length))) {
+            train.platformState = "REJECTED";
+            train.platformId = null;
+            return this._record({ ok: false, rejected: true, message: `${trainId} rejected after delay: train length ${train.length}m exceeds all platforms.` });
+        }
+        if (oldPlatform && oldPlatform.isCompatible(train.length, arrival, departure, this.bufferMinutes, trainId).ok) {
+            this._occupy(request, oldPlatform, arrival, departure);
+            const retry = this.retryNextWaiting();
+            return this._record({ ok: true, platform: oldPlatform, message: `${trainId} delayed to ${train.arrival}-${train.departure}; it keeps ${oldPlatform.id}. ${retry.message}` });
+        }
+        const compatible = this._compatiblePlatforms(train, arrival, departure);
+        if (compatible.length) {
+            const platform = compatible[0];
+            this._occupy(request, platform, arrival, departure);
+            const retry = this.retryNextWaiting();
+            return this._record({ ok: true, platform, message: `${trainId} delayed to ${train.arrival}-${train.departure}; reallocated to ${platform.id}. ${retry.message}` });
+        }
+        this._queue(request);
+        const retry = this.retryNextWaiting();
+        if (this.assignments.has(trainId)) {
+            const platform = this.assignments.get(trainId);
+            return this._record({ ok: true, platform, message: `${trainId} delayed and assigned to ${platform.id} after queue retry.` });
+        }
+        return this._record({ ok: false, queued: true, message: `${trainId} delayed to ${train.arrival}-${train.departure}; queued for a platform. ${retry.message}` });
+    }
+
+    previewDelay(trainId, newArrival, newDeparture) {
+        const train = this.railwaySystem.trains.get(trainId);
+        if (!train) return this._record({ ok: false, message: `Train ${trainId} not found.` });
+        const arrival = typeof newArrival === "number" ? newArrival : parseTimeToMinutes(newArrival);
+        const departure = typeof newDeparture === "number" ? newDeparture : parseTimeToMinutes(newDeparture);
+        if (!Number.isInteger(arrival) || !Number.isInteger(departure) || departure <= arrival) {
+            return this._record({ ok: false, message: `Invalid delay preview for ${trainId}.` });
+        }
+        const current = this.assignments.get(trainId);
+        const result = current && current.isCompatible(train.length, arrival, departure, this.bufferMinutes, trainId).ok
+            ? { ok: true, state: "KEEPS", platformId: current.id, message: `${trainId} will keep ${current.id}.` }
+            : this._compatiblePlatforms(train, arrival, departure).length
+                ? { ok: true, state: "MOVES", platformId: this._compatiblePlatforms(train, arrival, departure)[0].id, message: `${trainId} will move to ${this._compatiblePlatforms(train, arrival, departure)[0].id}.` }
+                : { ok: train.length <= Math.max(...this.platforms.map(platform => platform.length)), state: train.length > Math.max(...this.platforms.map(platform => platform.length)) ? "REJECTED" : "QUEUED", platformId: null, message: train.length > Math.max(...this.platforms.map(platform => platform.length)) ? `${trainId} will be rejected: too long for every platform.` : `${trainId} will be re-queued.` };
+        return this._record(result);
+    }
+
+    previewPlacement(trainId, platformId, arrival, departure, withBuffer = true) {
+        const train = this.railwaySystem.trains.get(trainId);
+        const platform = this.platforms.find(item => item.id === platformId);
+        if (!train || !platform) return this._record({ ok: false, message: "Select a valid train and platform." });
+        const start = typeof arrival === "number" ? arrival : parseTimeToMinutes(arrival);
+        const end = typeof departure === "number" ? departure : parseTimeToMinutes(departure);
+        const result = platform.isCompatible(train.length, start, end, withBuffer ? this.bufferMinutes : 0, trainId);
+        return this._record({ ...result, message: result.ok ? `${trainId} fits ${platformId} at ${minutesToTime(start)}-${minutesToTime(end)}${withBuffer ? " with clearance" : ""}.` : `${trainId} cannot use ${platformId}: ${result.reason}.` });
+    }
+
+    moveTrain(trainId, platformId, arrival, departure) {
+        const train = this.railwaySystem.trains.get(trainId);
+        const platform = this.platforms.find(item => item.id === platformId);
+        if (!train || !platform) return this._record({ ok: false, message: "Select a valid train and platform." });
+        const start = typeof arrival === "number" ? arrival : parseTimeToMinutes(arrival);
+        const end = typeof departure === "number" ? departure : parseTimeToMinutes(departure);
+        const valid = platform.isCompatible(train.length, start, end, this.bufferMinutes, trainId);
+        if (!valid.ok) return this._record({ ok: false, message: `${trainId} placement rejected: ${valid.reason}.` });
+        const previous = this.assignments.get(trainId);
+        if (previous) previous.release(trainId);
+        this.assignments.delete(trainId);
+        const request = this.waitingQueue.heap.find(item => item.train.id === trainId);
+        if (request) this.waitingQueue.remove(request);
+        train.arrival = minutesToTime(start);
+        train.departure = minutesToTime(end);
+        this._occupy(request || createPlatformRequest(train, ++this.requestSequence), platform, start, end);
+        const retry = this.retryNextWaiting();
+        return this._record({ ok: true, platform, message: `${trainId} placed on ${platformId} at ${train.arrival}-${train.departure}. ${retry.message}` });
+    }
+
+    getStatus() {
+        const waiting = this.waitingQueue.toSortedArray();
+        const trains = Array.from(this.railwaySystem.trains.values()).map(train => ({
+            id: train.id,
+            name: train.name,
+            length: train.length,
+            priority: train.priority,
+            arrival: train.arrival,
+            departure: train.departure,
+            platformId: this.assignments.get(train.id)?.id || null,
+            state: train.platformState || "UNASSIGNED",
+            queuePosition: waiting.findIndex(request => request.train.id === train.id) + 1
+        }));
+        const intervals = this.platforms.flatMap(platform => platform.occupiedIntervals);
+        const occupiedMinutes = intervals.reduce((sum, interval) => sum + interval.endMin - interval.startMin, 0);
+        return {
+            platforms: this.platforms.map(platform => ({
+                id: platform.id,
+                length: platform.length,
+                occupiedIntervals: platform.occupiedIntervals.map(interval => ({ ...interval }))
+            })),
+            waitingQueue: waiting.map((request, index) => ({
+                trainId: request.train.id,
+                priority: request.train.priority,
+                arrival: request.train.arrival,
+                departure: request.train.departure,
+                position: index + 1
+            })),
+            trains,
+            utilizationPercentage: Math.min(100, Math.round(occupiedMinutes / (this.platforms.length * 1440) * 100))
+        };
+    }
+
+    resetPhase2() {
+        this.waitingQueue = new PriorityQueue();
+        this.assignments.clear();
+        this.requestSequence = 0;
+        this.platforms.forEach(platform => { platform.occupiedIntervals = []; });
+        const schedules = {
+            T001: ["08:30", "09:00", 280],
+            T002: ["08:30", "09:00", 350],
+            T003: ["08:30", "09:00", 450],
+            T004: ["08:45", "09:05", 250],
+            T005: ["08:50", "09:10", 280],
+            T006: ["09:05", "09:25", 650]
+        };
+        for (const [trainId, [arrival, departure, length]] of Object.entries(schedules)) {
+            const train = this.railwaySystem.trains.get(trainId);
+            if (!train) continue;
+            [train.arrival, train.departure, train.length] = [arrival, departure, length];
+            train.platformId = null;
+            train.platformState = "UNASSIGNED";
+        }
+        window.eventLog = [];
+        ["T001", "T002", "T003", "T004", "T005", "T006"].forEach(trainId => {
+            const train = this.railwaySystem.trains.get(trainId);
+            if (train) this.requestPlatform(trainId);
+        });
+        return this._record({ ok: true, message: "Phase 2 state reset with overlapping schedules, priority queue, and overlong-train case." });
     }
 }
 
@@ -784,3 +1359,12 @@ class RailwaySystem {
 if (!window.railwaySystem) {
     window.railwaySystem = new RailwaySystem();
 }
+
+window.Interval = Interval;
+window.Platform = Platform;
+window.PlatformRequest = PlatformRequest;
+window.EmergencyArrival = EmergencyArrival;
+window.ConnectingArrival = ConnectingArrival;
+window.ScheduledArrival = ScheduledArrival;
+window.PriorityQueue = PriorityQueue;
+window.PlatformAllocationEngine = PlatformAllocationEngine;

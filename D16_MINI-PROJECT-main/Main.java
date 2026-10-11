@@ -113,6 +113,8 @@ public class Main {
         // Connecting feeder train
         TrainService train6 = new TrainService("16127", "Guruvayur Connecting Express", 10);
         train6.setSchedule("19:30", "19:40", 380, "CONNECTING");
+        TrainService train6 = new TrainService("16127", "Guruvayur Connecting Express");
+        train6.setSchedule("19:30", "19:40", 650, "CONNECTING");
         railwaySystem.addTrain(train6);
     }
 
@@ -167,7 +169,10 @@ public class Main {
             System.out.print("Enter passenger name: ");
             String passengerName = scanner.nextLine().trim();
 
-            Reservation reservation = railwaySystem.bookSeat(trainId, passengerId, passengerName);
+            System.out.print("Enter seat number (1-10): ");
+            int seatNumber = Integer.parseInt(scanner.nextLine().trim());
+
+            Reservation reservation = railwaySystem.bookSeat(trainId, passengerId, passengerName, seatNumber);
 
             if (reservation != null) {
                 System.out.println("CONFIRMED, seat #" + reservation.getSeatNumber()
@@ -192,10 +197,10 @@ public class Main {
             System.out.print("Enter train ID: ");
             String trainId = scanner.nextLine().trim();
 
-            System.out.print("Enter reservation ID: ");
-            String reservationId = scanner.nextLine().trim();
+            System.out.print("Enter passenger ID: ");
+            String passengerId = scanner.nextLine().trim();
 
-            Reservation promoted = railwaySystem.cancelBooking(trainId, reservationId);
+            Reservation promoted = railwaySystem.cancelBookingByPassengerId(trainId, passengerId);
 
             System.out.println("Booking cancelled successfully.");
             if (promoted != null) {

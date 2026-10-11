@@ -53,7 +53,7 @@ public class DelayHandler {
         Objects.requireNonNull(train, "train must not be null");
         Objects.requireNonNull(engine, "engine must not be null");
 
-        if (newArrivalMinutes < 0 || newDepartureMinutes < newArrivalMinutes) {
+        if (newArrivalMinutes < 0 || newDepartureMinutes <= newArrivalMinutes) {
             throw new IllegalArgumentException(String.format(
                     "Invalid schedule times: arrival=%d, departure=%d", newArrivalMinutes, newDepartureMinutes));
         }
@@ -61,24 +61,26 @@ public class DelayHandler {
         String newArrHHMM = formatMinutesToHHMM(newArrivalMinutes);
         String newDepHHMM = formatMinutesToHHMM(newDepartureMinutes);
 
-        // Case 1: Train currently holds NO platform (still waiting in priority queue)
+        // Case 1: Train currently holds no platform (waiting or previously unassigned)
         if (currentPlatform == null) {
-            // Update the train's stored arrival and departure times
             train.setSchedule(newArrHHMM, newDepHHMM, train.getTrainLength(), train.getDeclaredPriority());
-
-            // Locate existing PlatformRequest in waiting queue and notify engine to re-rank
             PlatformRequest existingRequest = findExistingRequest(engine, train.getTrainId());
             if (existingRequest != null) {
                 engine.reRank(existingRequest);
             }
-
-            lastResultPlatform = null;
-            System.out.printf("Train %s is waiting; updated schedule to %s-%s and re-ranked in waiting queue.%n",
-                    train.getTrainId(), newArrHHMM, newDepHHMM);
-
-            // Invariant confirmation for Case 1
-            assert isTrainInWaitingQueue(engine, train.getTrainId()) :
-                    "Invariant Violation: Waiting train " + train.getTrainId() + " must be present in queue";
+            PlatformRequest request = existingRequest != null ? existingRequest : createPlatformRequest(train);
+            lastResultPlatform = engine.tryAllocate(request, train.getTrainLength(),
+                    newArrivalMinutes, newDepartureMinutes, bufferMinutes);
+            if (lastResultPlatform == null) {
+                System.out.printf("Train %s is waiting; updated schedule to %s-%s and retained in the priority queue.%n",
+                        train.getTrainId(), newArrHHMM, newDepHHMM);
+                if (!isTrainInWaitingQueue(engine, train.getTrainId())) {
+                    throw new IllegalStateException("Train " + train.getTrainId() + " was not allocated or queued.");
+                }
+            } else {
+                System.out.printf("Train %s updated to %s-%s and allocated to Platform %s.%n",
+                        train.getTrainId(), newArrHHMM, newDepHHMM, lastResultPlatform.getId());
+            }
             return;
         }
 
