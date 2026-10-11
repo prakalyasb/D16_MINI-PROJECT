@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platform Allocation - Payanam Junction</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">
+                <span class="nav-logo-icon">🚄</span>
+                <div class="nav-brand-text">
+                    <span class="nav-brand-title">PAYANAM JUNCTION</span>
+                    <span class="nav-brand-sub">Railway Reservation Prototype</span>
+                </div>
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html" class="nav-link">Home</a></li>
+                <li><a href="reservations.html" class="nav-link">Reservations</a></li>
+                <li><a href="platform-allocation.html" class="nav-link active">Platform Allocation</a></li>
+                <li><a href="test-scenarios.html" class="nav-link">Test Scenarios</a></li>
+                <li><a href="animation.html" class="nav-link">Animation</a></li>
+            </ul>
+            <div class="nav-actions">
+                <button id="btnResetState" class="btn-reset" title="Reset all trains to empty state">
+                    <span>↺</span> Reset System
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="page-header">
+            <h1 class="page-title">Station Platform Allocation &amp; Track Constraints</h1>
+            <p class="page-desc">
+                Physical platform specifications and berthing interval registry. In our railway topology, Payanam Junction operates 3 distinct passenger platforms with fixed physical length limits (300m, 400m, 500m). Trains whose overall length exceeds a platform's capacity cannot be routed to that platform.
+            </p>
+        </header>
+
+        <!-- Phase 2 Roadmap Notice Banner -->
+        <div class="phase2-banner">
+            <div class="phase2-icon">&#x1F6E4;&#xFE0F;</div>
+            <div>
+                <div class="phase2-title">Phase 2 Module: Automated Platform Scheduling</div>
+                <div class="phase2-text">
+                    Active track assignment, interval overlap detection, and delay cascade handling are scheduled for integration in Phase 2. Below are the physical platform definitions and empty interval structures ready for the scheduling engine.
+                </div>
+            </div>
+        </div>
+
+        <!-- Platform Specifications Table -->
+        <div class="data-table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Platform ID</th>
+                        <th>Max Length Capacity</th>
+                        <th>Permissible Trains</th>
+                        <th>Occupied Time Intervals</th>
+                        <th>Track Status</th>
+                    </tr>
+                </thead>
+                <tbody id="platformsTableBody">
+                    <!-- Dynamically populated from RailwaySystem platforms -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Operational Status Banner -->
+        <div id="platformStatusContainer" style="margin-top: 1.5rem;"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div>Payanam Junction &bull; Mini-Project Team D16</div>
+            <div class="footer-tech">Java 17+ Backend Architecture &bull; Web Simulator</div>
+        </div>
+    </footer>
+
+    <!-- Shared Logic Script -->
+    <script src="sim.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            renderPlatformTable();
+
+            // Handle Reset button
+            document.getElementById("btnResetState").addEventListener("click", () => {
+                if (confirm("Reset all reservations and logs to initial state?")) {
+                    window.railwaySystem.reset();
+                    renderPlatformTable();
+                    const statusEl = document.getElementById("platformStatusContainer");
+                    if (statusEl) {
+                        statusEl.innerHTML = '<div class="status-msg info">Platforms reset to unallocated idle state.</div>';
+                        setTimeout(() => { if (statusEl) statusEl.innerHTML = ""; }, 3000);
+                    }
+                }
+            });
+        });
+
+        function renderPlatformTable() {
+            const platforms = window.railwaySystem.listAllPlatforms();
+            const trains = window.railwaySystem.listAllTrains();
+            const tbody = document.getElementById("platformsTableBody");
+            tbody.innerHTML = "";
+
+            platforms.forEach(pf => {
+                // Determine which trains physically fit on this platform
+                const fittingTrains = trains
+                    .filter(t => t.length <= pf.length)
+                    .map(t => `<span class="train-id-badge" style="font-size:0.75rem; padding:0.1rem 0.35rem; margin-right:4px;">${t.id} (${t.length}m)</span>`)
+                    .join(" ");
+
+                const intervalsDisplay = pf.occupiedIntervals.length === 0
+                    ? '<span style="color: var(--text-muted); font-family: var(--font-mono); font-size: 0.85rem;">[ ] (Empty / Free)</span>'
+                    : pf.occupiedIntervals.map(inv => `[${inv.start} - ${inv.end}: ${inv.trainId}]`).join(", ");
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>
+                        <strong style="color: #60a5fa; font-family: var(--font-mono); font-size: 1rem;">${pf.id}</strong>
+                    </td>
+                    <td>
+                        <span style="font-family: var(--font-mono); font-weight: 600; color: #f8fafc;">${pf.length} meters</span>
+                    </td>
+                    <td>
+                        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                            ${fittingTrains}
+                        </div>
+                    </td>
+                    <td>${intervalsDisplay}</td>
+                    <td>
+                        <span class="priority-badge scheduled" style="color: #34d399; border-color: rgba(52, 211, 153, 0.3); background: rgba(52, 211, 153, 0.1);">
+                            READY / IDLE
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
